@@ -208,7 +208,8 @@ if __name__ == '__main__':
     with fits.open(reference_filename) as hdul:
         h_data = hdul[0].data
         h_header = hdul[0].header
-    dust_directory = "/n/sgraraid/filaments/data/TEST4/helpss_scratch_work/"
+    # The filename below is correct, even after the directory move
+    dust_directory = "/n/sgraraid/filaments/data/TEST4/regridding_stuff/"
     sky = DustModel(field_stub, band_stub, h_data, h_header, dust_directory)
     planck350 = sky.observe_planck(band_stub)
     new_filename = region_directory+"%s-image-PLANCKfabricated.fits" % band_stub

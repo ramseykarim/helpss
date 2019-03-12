@@ -11,7 +11,8 @@ from astropy.wcs import WCS
 
 per1_dir_stub = "/n/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/"
 planck_dir = "/n/sgraraid/filaments/data/"
-dust_directory = "/n/sgraraid/filaments/data/TEST4/helpss_scratch_work/"
+# The filename below is correct, even after the directory move
+dust_directory = "/n/sgraraid/filaments/data/TEST4/regridding_stuff/"
 spire_fn = "SPIRE350um-image-remapped.fits"
 spire_fn = per1_dir_stub + spire_fn
 planck_fns = {

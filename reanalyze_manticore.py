@@ -69,6 +69,8 @@ soln_3p_plus046f_15p8 = "T4-absdiff-Per1J-3param-plus046-full-15p8.fits"
 soln_3p_plus047 = "T4-absdiff-Per1J-3param-plus047.fits"
 soln_3p_plus047_15p5 = "T4-absdiff-Per1J-3param-plus047-15p5.fits"
 
+
+
 fns_43 = (soln_2p_plus043, soln_3p_plus043)
 fns_45 = (soln_2p_plus045, soln_3p_plus045)
 fns_45_15p5 = (soln_2p_plus045, soln_3p_plus045_15p5)
@@ -578,6 +580,25 @@ def examine_2p_chisq_hist():
 	plt.tight_layout()
 	show_plot()
 
+
+def big_change_in_T():
+	fns = mtc.fns_bigchangeT
+	plt.figure(figsize=(15, 12))
+	axes = iter([plt.subplot(231 + i) for i in range(6)])
+	assert len(fns) <= 6
+	new_temperatures = sorted([*fns])
+	mask = masking_attempt(filename_override=None)
+	for temperature in new_temperatures:
+		filename = fns[temperature]
+		plt.sca(next(axes))
+		mtc.quickrun_image_masked_full(7, mask, l=(20., 21.5),
+		# mtc.quickrun_image_masked_full(1, mask, l=(5, 11),
+			filename_override=filename, ax=1)
+		plt.title(f"T = {temperature} K")
+	plt.tight_layout()
+	show_plot()
+
+
 def definitive_hotT_method():
 	"""
 	Gaussian fit the Xs<1-masked single-T distribution
@@ -610,7 +631,8 @@ def definitive_hotT_method():
 	err_hotT = stats[1]
 	return hot_T, err_hotT
 
-def masking_attempt(max_dT=2, n=4):
+def masking_attempt(max_dT=2, n=4,
+	filename_override=None):
 	"""
 	The mask is built on:
 	1) requiring all 4 bands to be present
@@ -619,11 +641,13 @@ def masking_attempt(max_dT=2, n=4):
 	It is then cleaned with the boolean islands technique
 	"""
 	mask = mtc.get_notjunk_mask() #& mtc.get_filament_mask()
-	mask &= mtc.mask_img_full(2, (0, max_dT))
+	mask &= mtc.mask_img_full(2, (0, max_dT),
+		filename_override=filename_override)
 	# ADDED A dNc MASK, it works very well to clean out the remaining
 	# problem regions
-	mask &= mtc.mask_img_full(4, (0, 10**22))
-	mask = fill_inwards(mask, mtc.get_pacs_mask(), n=n, min_size=3)
+	mask &= mtc.mask_img_full(4, (0, 10**22),
+		filename_override=filename_override)
+	# mask = fill_inwards(mask, mtc.get_pacs_mask(), n=n, min_size=3)
 	return mask
 
 def maxdTvsN():
@@ -654,10 +678,11 @@ def maxdTvsN():
 # plot_SED(531, 308, residuals=False)
 np.warnings.filterwarnings('ignore')
 # print(np.around(definitive_hotT_method(), 2))
-mask = masking_attempt(2, 1)
+
+# mask = masking_attempt(2, 1)
 # Cold temp
 #mtc.quickrun_image_masked_full(1, mask, l=(5, 11))
 # Cold column
-mtc.quickrun_image_masked_full(7, mask, l=(20.5, 21.5))
+# mtc.quickrun_image_masked_full(7, mask, l=(20.5, 21.5))
+big_change_in_T()
 
-# maxdTvsN()

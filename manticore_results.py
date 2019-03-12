@@ -27,9 +27,28 @@ soln_3p_plus045 = "T4-absdiff-Per1J-3param-plus045.fits"
 soln_3p_plus045_15p5 = "T4-absdiff-Per1J-3param-plus045-15p5.fits"
 soln_3p_plus046 = "T4-absdiff-Per1J-3param-plus046.fits"
 soln_3p_plus046f = "T4-absdiff-Per1J-3param-plus046-full.fits"
-soln_3p_plus046f_15p8 = "T4-absdiff-Per1J-3param-plus046-full-15p8.fits"
 soln_3p_plus047 = "T4-absdiff-Per1J-3param-plus047.fits"
 soln_3p_plus047_15p5 = "T4-absdiff-Per1J-3param-plus047-15p5.fits"
+
+
+soln_3p_plus046f_15p0 = "T4-absdiff-Per1J-3param-plus046-full-15p0.fits"
+soln_3p_plus046f_15p3 = "T4-absdiff-Per1J-3param-plus046-full-15p3.fits"
+
+soln_3p_plus046f_15p8 = "T4-absdiff-Per1J-3param-plus046-full-15p8.fits"
+
+soln_3p_plus046f_16p2 = "T4-absdiff-Per1J-3param-plus046-full-16p2.fits"
+soln_3p_plus046f_16p5 = "T4-absdiff-Per1J-3param-plus046-full-16p5.fits"
+
+
+fns_bigchangeT = {
+	15.0: soln_3p_plus046f_15p0,
+	15.3: soln_3p_plus046f_15p3,
+	15.7: soln_3p_plus046f,
+	15.8: soln_3p_plus046f_15p8,
+	16.2: soln_3p_plus046f_16p2,
+	16.5: soln_3p_plus046f_16p5,
+}
+
 
 fns_43 = (soln_2p_plus043, soln_3p_plus043)
 fns_45 = (soln_2p_plus045, soln_3p_plus045)
@@ -541,7 +560,8 @@ def mask_changedT_full(i, l):
 	ratio = load_specific_frame(soln_3p_plus046f_15p8, i) / load_specific_frame(soln_3p_plus046f, i)
 	return get_pacs_mask() & (ratio < l[1]) & (ratio > l[0])
 
-def quickrun_image_masked_full(i, mask, l=None, label=""):
+def quickrun_image_masked_full(i, mask, l=None, label="",
+	filename_override=None, ax=None):
 	if l is None:
 		if i == 1:
 			l = (2, 17)
@@ -549,19 +569,25 @@ def quickrun_image_masked_full(i, mask, l=None, label=""):
 			l = (20, 23)
 		else:
 			l = (0, 5)
-	img = load_specific_frame(soln_3p_plus046f, i)
+	if filename_override is None:
+		filename = soln_3p_plus046f
+	else:
+		filename = filename_override
+	img = load_specific_frame(filename, i)
 	img[~mask] = np.nan
 	if (i >= 3) & (i <= 8):
 		img = np.log10(img)
-	plt.figure(figsize=(12, 12))
-	plt.subplot(111)
+	if ax is None:
+		plt.figure(figsize=(12, 12))
+		plt.subplot(111)
 	plt.imshow(img, origin='lower', vmin=l[0], vmax=l[1])
 	plt.colorbar()
 	#plt.title(field_names[i]+label)
-	plt.tight_layout()
-	show_plot()
+	if ax is None:
+		plt.tight_layout()
+		show_plot()
 
-def quickrun_2pimage_masked_full(i, mask, l=None, label=""):
+def quickrun_2pimage_masked_full(i, mask, l=None, label="", filename_override=None):
 	if l is None:
 		if i == 1:
 			l = (2, 17)
@@ -569,7 +595,11 @@ def quickrun_2pimage_masked_full(i, mask, l=None, label=""):
 			l = (20, 23)
 		else:
 			l = (0, 5)
-	img = load_specific_frame(soln_2p_plus046, i)
+	if filename_override is None:
+		filename = soln_2p_plus046
+	else:
+		filename = filename_override
+	img = load_specific_frame(filename, i)
 	img[~mask] = np.nan
 	if (i >= 3) & (i <= 4):
 		img = np.log10(img)
@@ -581,8 +611,12 @@ def quickrun_2pimage_masked_full(i, mask, l=None, label=""):
 	plt.tight_layout()
 	show_plot()
 
-def mask_img_full(i, l):
-	original_fn = soln_3p_plus046f
+def mask_img_full(i, l, filename_override=None):
+	if filename_override is None:
+		filename = soln_3p_plus046f
+	else:
+		filename = filename_override
+	original_fn = filename
 	img = load_specific_frame(original_fn, i)
 	return get_pacs_mask() & (img > l[0]) & (img < l[1])
 
