@@ -1,4 +1,4 @@
-plotting_remotely = False
+plotting_remotely = True
 import numpy as np
 import matplotlib
 if plotting_remotely:
@@ -685,4 +685,3 @@ np.warnings.filterwarnings('ignore')
 # Cold column
 # mtc.quickrun_image_masked_full(7, mask, l=(20.5, 21.5))
 big_change_in_T()
-

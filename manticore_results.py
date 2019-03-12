@@ -1,4 +1,4 @@
-plotting_remotely = False
+plotting_remotely = True
 import numpy as np
 import matplotlib
 if plotting_remotely:
