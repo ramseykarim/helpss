@@ -591,8 +591,8 @@ def big_change_in_T():
 	for temperature in new_temperatures:
 		filename = fns[temperature]
 		plt.sca(next(axes))
-		mtc.quickrun_image_masked_full(7, mask, l=(20., 21.5),
-		# mtc.quickrun_image_masked_full(1, mask, l=(5, 11),
+		# mtc.quickrun_image_masked_full(3, mask, l=(21., 22.5),
+		mtc.quickrun_image_masked_full(1, mask, l=(5, 11),
 			filename_override=filename, ax=1)
 		plt.title(f"T = {temperature} K")
 	plt.tight_layout()
