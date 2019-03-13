@@ -118,13 +118,15 @@ def scatter(*args, x_lim=None, y_lim=None, log_x=False, log_y=False,
 	plt.xlabel(x_label), plt.ylabel(y_label)
 	return p
 
-def histogram(*args, x_lim=None, log=False, label=None, setting=0):
+def histogram(*args, x_lim=None, log=False, label=None, setting=0,
+	text=True):
 	histxy, stats = gen_hist_and_stats(*args, x_lim=x_lim,
 		log=log, setting=setting)
 	p = plt.plot(*histxy, '-', label=label)
 	# print(stats)
-	plt.text(stats[0], np.max(histxy[1]),
-		"Mode: {0:.3f}\n STD: {1:.3f}".format(stats[0], stats[1]))
+	if text:
+		plt.text(stats[0], np.max(histxy[1]),
+			"Mode: {0:.3f}\n STD: {1:.3f}".format(stats[0], stats[1]))
 	return p
 
 def pacs_vs_spire_ratio():
