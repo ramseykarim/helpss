@@ -101,16 +101,18 @@ def gen_hist_and_stats(*args, x_lim=None, log=False, band=None, setting=0):
 		spline = UnivariateSpline(bin_centers, dhist - peak_val*factor, s=0)
 		r1, r2 = spline.roots()
 		# this is interesting to investigate...
-		print(max(np.linspace(r1, r2, 200), key=spline))
+		# print(max(np.linspace(r1, r2, 200), key=spline))
 		# should probably try gauss-fit to hist>FWHM
 		fwhm = np.abs(r1 - r2)
 		sigma = fwhm/2.355
-		#histy = spline(histx)
 		if setting < 0:
 			p0 = [mode, sigma, peak_val]
 			popt, pcov = curve_fit(gaussian, bin_centers, dhist, p0=p0)
 			mode, sigma, A = popt
 			error = np.sqrt(np.diag(pcov))
+			if setting < -2:
+				histy = gaussian(bin_centers, *popt)
+				histx = bin_centers
 	except ValueError:
 		fwhm, sigma = np.nan, np.nan
 	if log:

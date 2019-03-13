@@ -26,8 +26,8 @@ REF_F = 353*1e9  # 353 GHz is the reference frequency for Planck opacity
 
 angstroms_to_Hz = lambda x: c / (x * 1e-10)
 
-hb_dr = "Herschel_bands/"
-p_RIMO = "HFI_stuff/HFI_RIMO_R3.00.fits"
+hb_dr = "/n/sgraraid/filaments/data/TEST4/regridding_stuff/Herschel_bands/"
+p_RIMO = "/n/sgraraid/filaments/data/TEST4/regridding_stuff/HFI_stuff/HFI_RIMO_R3.00.fits"
 spire_stub = lambda x: hb_dr+"Herschel_SPIRE.P"+x+"W_ext.dat"
 kevin_bp_fn = lambda b: "{}_fromManticore.dat".format(b)
 bandpass_files = {
@@ -77,8 +77,8 @@ def get_bandpass_data(stub):
     else:
         fn = bandpass_files[stub]
         # FIXME do we need the hb_dr filename in here???
+        # fixed: nah, we're good. delete this comment eventually
         bp_data = np.loadtxt(fn)
-        # Wavelengths come out in angstroms
         frequency_SI, weight = bp_data[:, 0], bp_data[:, 1]
     return frequency_SI, weight
 
