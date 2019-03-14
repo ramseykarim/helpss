@@ -653,6 +653,7 @@ def masking_attempt(max_dT=2, n=4,
 	return mask
 
 def maxdTvsN():
+	# big grid of masks that takes a long time to run
 	n_range = [2, 4, 6, 8]
 	max_dT_range = [1.5, 2, 3, 5]
 	notjunk_mask = mtc.get_notjunk_mask()
