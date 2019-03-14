@@ -7,11 +7,12 @@ SAVE_NAME = "Figure_X_current.png"
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 from astropy.io import fits
-from planck_mask import gen_hist_and_stats
+from scipy.interpolate import UnivariateSpline
+from scipy.optimize import curve_fit
+from planck_mask import gen_hist_and_stats, get_spire_mask, BINS
 import manticore_results as mtc
-from planck_mask import get_spire_mask
 from boolean_islands import get_mask, get_planck_mask, fill_inwards
-from reanalyze_manticore import histogram, gaussian
+from reanalyze_manticore import histogram
 import sys
 
 def show_plot():
@@ -56,33 +57,55 @@ def load_manticore(filename, frames=None):
 		imgs = tuple(hdul[x].data for x in frames)
 	return imgs
 
+def gaussian(x, mu, sigma, A):
+	return A*np.exp(-1*(x - mu)**2 / (2*sigma*sigma))
 
 T, Xs = load_manticore(nominal_2p_soln, frames=(1, 5))
-hist_limits = (10, 20)
+hist_limits = (10., 20.)
 img = T
 mask = mtc.get_pacs_mask() & (Xs < 1)
 
-dhist, dedges = np.histogram(img[mask].ravel(), bins=BINS, range=x_lim)
+dhist, dedges = np.histogram(img[mask].ravel(), bins=BINS, range=hist_limits)
 prep_arr = lambda a, b: np.array([a, b]).T.flatten()
 histx, histy = prep_arr(dedges[:-1], dedges[1:]), prep_arr(dhist, dhist)
 bin_centers = (dedges[:-1]+dedges[1:])/2
-# try to fit the top half only
-
-try:
-	spline = UnivariateSpline(bin_centers, dhist - peak_val*factor, s=0)
-	r1, r2 = spline.roots()
-	fwhm = np.abs(r1 - r2)
-	sigma = fwhm/2.355
-except ValueError:
-	fwhm, sigma = np.nan, np.nan
+# Fit the top half only
 peak_val = np.max(dhist)
 mode = bin_centers[dhist == peak_val][0]
-p0 = [mode, sigma, peak_val]
-popt, pcov = curve_fit(gaussian, bin_centers, dhist, p0=p0)
-mode, sigma, A = popt
+dhist_half = dhist[dhist > peak_val/2.].astype(float)
+bin_centers_half = bin_centers[dhist > peak_val/2.]
+dhist_half -= peak_val/2.
+
+
+uncertainty = np.sqrt(dhist)
+uncertainty[uncertainty == 0] = 1
+p0 = [15.7, .6, peak_val]
+
+residuals = (gaussian(bin_centers, *p0) - dhist)/uncertainty
+print(residuals)
+print(np.sqrt(np.sum(residuals**2)))
+
+
+popt, pcov = curve_fit(gaussian, bin_centers, dhist,
+	p0=p0, sigma=uncertainty, method='trf')
+print(p0, popt)
+
+com = np.sum(dhist*bin_centers)/np.sum(dhist)
+print("!!!!!! COM", com)
+
+# mode, sigma, A = popt
+
+# factor = 0.5
+# try:
+# 	spline = UnivariateSpline(bin_centers, dhist - peak_val*factor, s=0)
+# 	r1, r2 = spline.roots()
+# 	fwhm = np.abs(r1 - r2)
+# 	sigma = fwhm/2.355
+# except ValueError:
+# 	fwhm, sigma = np.nan, np.nan
 
 plt.figure(figsize=(11, 8.5))
-plt.plot(histx, histy, '-')
+plt.plot(bin_centers, dhist, '.')
 plt.plot(bin_centers, gaussian(bin_centers, *popt), '--')
 plt.tight_layout()
 show_plot()

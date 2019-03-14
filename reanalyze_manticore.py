@@ -678,13 +678,14 @@ def maxdTvsN():
 	plt.tight_layout()
 	show_plot()
 
-# plot_SED(531, 308, residuals=False)
-np.warnings.filterwarnings('ignore')
-# print(np.around(definitive_hotT_method(), 2))
+if __name__ == "__main__":
+	# plot_SED(531, 308, residuals=False)
+	np.warnings.filterwarnings('ignore')
+	# print(np.around(definitive_hotT_method(), 2))
 
-# mask = masking_attempt(2, 1)
-# Cold temp
-#mtc.quickrun_image_masked_full(1, mask, l=(5, 11))
-# Cold column
-# mtc.quickrun_image_masked_full(7, mask, l=(20.5, 21.5))
-big_change_in_T()
+	# mask = masking_attempt(2, 1)
+	# Cold temp
+	#mtc.quickrun_image_masked_full(1, mask, l=(5, 11))
+	# Cold column
+	# mtc.quickrun_image_masked_full(7, mask, l=(20.5, 21.5))
+	big_change_in_T()
