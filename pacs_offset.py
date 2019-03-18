@@ -212,14 +212,19 @@ def plot_before_and_after(ax):
 
 
 def capstone_figure_pacs_offset():
-	plt.figure(figsize=(17, 9))
-	ax = plt.subplot(221)
+	plt.figure(figsize=(17, 7))
+	ax = plt.subplot(121)
 	plot_multiple_offset_attempts(ax)
-	ax = plt.subplot(222)
+	ax = plt.subplot(122)
 	plot_cumulative_planck_ratio_mask(ax)
-	ax = plt.subplot(212)
+	plt.tight_layout()
+	show_plot()
+
+def before_and_after_figure():
+	plt.figure(figsize=(11.5, 8))
+	ax = plt.subplot(111)
 	plot_before_and_after(ax)
 	plt.tight_layout()
 	show_plot()
 
-capstone_figure_pacs_offset()
+before_and_after_figure()
