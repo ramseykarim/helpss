@@ -167,6 +167,7 @@ class DustModel:
             print("Calculating sky at %s band..." % band_stub, end="")
             return_value = self.flux_helper(0, self.T.shape[1])
             print("done.")
+        return return_value
         print("Interpolating back to Herschel grid...", end="")
         return_value = self.projection_wizard.interpolate_to_target(return_value)
         print("done.")

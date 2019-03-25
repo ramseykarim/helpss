@@ -227,4 +227,54 @@ def before_and_after_figure():
 	plt.tight_layout()
 	show_plot()
 
-before_and_after_figure()
+
+def offset_emma_data():
+	pacs_filepath = dust_directory + "Herschel160umDC2742.fits"
+	# pacs_filepath = region_directory + pacs_band_stub + img_stub
+	h_data, h_head = getdata(pacs_filepath, header=True)
+	"""
+	Ok we're dealing with Jy/pixel here. Need to sort out how to convert
+	delta angle = -8.888888988E-4 degrees
+	Flux/pixel * (sqdeg/pixel)^-1 = Flux/sqdeg
+	sqdeg/pixel = (delta angle ** 2)
+	Flux/pixel * (delta angle ** 2)^-1 = Flux/sqdeg
+
+	square degree = (pi/180)^2 sr
+	sqdeg/sr = (pi/180)^-2 # the number of sqdeg in a sr should be large
+	Flux/sqdeg * sqdeg/sr = Flux/sr
+	Flux/sqdeg * (pi/180)^-2 = Flux/sr
+
+	Flux/sr = Flux/pixel * (delta angle ** 2)^-1 * (pi/180)^-2
+
+	that should be a larger number
+	"""
+	angle_per_pixel = (abs(h_head['CDELT1']) + abs(h_head['CDELT2']))/2.
+	h_data /= ((np.pi/180.)**2) * (angle_per_pixel**2.)
+	h_data /= 1e6
+	sky = DustModel("Per1", "PACS160um", h_data, h_head, dust_directory)
+	# img = sky.projection_wizard
+	# look into what the hell is going on. everything is ok until here!
+	img = sky.observe_planck("PACS160um")
+	plt.figure(figsize=(15, 9))
+	plt.subplot(121)
+	plt.imshow(h_data, origin='lower', vmin=0, vmax=100)
+	plt.colorbar()
+	plt.subplot(122)
+	plt.imshow(img, origin='lower', vmin=0, vmax=100)
+	plt.colorbar()
+	show_plot()
+	return
+	p_data = sky.observe_planck("PACS160um")
+	def histogram_pacs(d, ref, label):
+		histxy, stats = gen_hist_and_stats(d, ~np.isnan(ref), x_lim=fluxLIM)
+		plt.plot(*histxy, '-', label=label)
+	histogram_pacs(h_data, h_data, r"Emma's 160$\mu$m data")
+	histogram_pacs(p_data, h_data, r"Planck flux")
+	plt.legend()
+	plt.xlabel("Flux (MJy/sr)")
+	plt.ylabel("Histogram count")
+	show_plot()
+
+
+if __name__ == "__main__":
+	offset_emma_data()

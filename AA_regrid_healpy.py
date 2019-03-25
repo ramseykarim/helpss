@@ -169,6 +169,7 @@ class ProjectionWrapper:
         del l_target, b_target
         # Interpolate. Method options are ("linear", "nearest", "splinef2d")
         # Note that we invert the order of the longitudes to make them strictly increasing
+        print("VALUES", np.nanmedian(b_range), np.nanmedian(l_range))
         interpolated_vals_list = interpn((b_range, l_range[::-1]), image[:, ::-1], bl_target_pairs, method=method)
         interpolated_data = assign_interpolated_values(interpolated_vals_list, pix_list, self.target_fits_data.shape)
         return interpolated_data
@@ -192,14 +193,14 @@ def project_healpix_to_fits(source_hp, target_fits_data, target_fits_header, nes
 
 # |  projmap(self, map, vec2pix_func, rot=None, coord=None)
 # |      Create an array containing the projection of the map.
-# |      
+# |
 # |      Input:
 # |        - vec2pix_func: a function taking theta,phi and returning pixel number
 # |        - map: an array containing the spherical map to project,
 # |               the pixelisation is described by vec2pix_func
 # |      Return:
 # |        - a 2D array with the projection of the map.
-# |      
+# |
 # |      Note: the Projector must contain information on the array.
 # get_center(self, lonlat=False)
 
