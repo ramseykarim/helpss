@@ -45,9 +45,10 @@ soln_3p_plus046f_15p8 = "T4-absdiff-Per1J-3param-plus046-full-15p8.fits"
 soln_3p_plus047 = "T4-absdiff-Per1J-3param-plus047.fits"
 soln_3p_plus047_15p5 = "T4-absdiff-Per1J-3param-plus047-15p5.fits"
 
-nominal_2p_soln = soln_2p_plus045
+nominal_2p_soln = soln_2p_plus045 # 15.7 K
 nominal_3p_soln = soln_3p_plus045
 
+dl3_2p_soln = "T4-absdiff-Per1J-plus045-DL3.fits" # this one is 14.2 K!
 
 def load_manticore(filename, frames=None):
 	if frames is None:
@@ -64,7 +65,7 @@ def poly(x, a, b, c):
 
 prep_arr = lambda a, b: np.array([a, b]).T.flatten()
 
-T, Xs = load_manticore(nominal_2p_soln, frames=(1, 5))
+T, Xs = load_manticore(dl3_2p_soln, frames=(1, 5))
 
 
 BINS = 128

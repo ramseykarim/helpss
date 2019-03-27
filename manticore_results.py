@@ -574,6 +574,8 @@ def quickrun_image_masked_full(i, mask, l=None, label="",
 	else:
 		filename = filename_override
 	img = load_specific_frame(filename, i)
+	if mask is None:
+		mask = ~np.isnan(img)
 	img[~mask] = np.nan
 	if (i >= 3) & (i <= 8):
 		img = np.log10(img)
@@ -582,12 +584,13 @@ def quickrun_image_masked_full(i, mask, l=None, label="",
 		plt.subplot(111)
 	plt.imshow(img, origin='lower', vmin=l[0], vmax=l[1])
 	plt.colorbar()
-	#plt.title(field_names[i]+label)
+	# plt.title(field_names[i]+label)
 	if ax is None:
 		plt.tight_layout()
 		show_plot()
 
-def quickrun_2pimage_masked_full(i, mask, l=None, label="", filename_override=None):
+def quickrun_2pimage_masked_full(i, mask, l=None, label="",
+	filename_override=None, ax=None):
 	if l is None:
 		if i == 1:
 			l = (2, 17)
@@ -600,16 +603,21 @@ def quickrun_2pimage_masked_full(i, mask, l=None, label="", filename_override=No
 	else:
 		filename = filename_override
 	img = load_specific_frame(filename, i)
+	if mask is None:
+		mask = ~np.isnan(img)
 	img[~mask] = np.nan
 	if (i >= 3) & (i <= 4):
 		img = np.log10(img)
-	plt.figure(figsize=(12, 12))
-	plt.subplot(111)
+	if ax is None:
+		plt.figure(figsize=(12, 12))
+		plt.subplot(111)
 	plt.imshow(img, origin='lower', vmin=l[0], vmax=l[1])
 	plt.colorbar()
 	#plt.title(field_names[i]+label)
 	plt.tight_layout()
-	show_plot()
+	if ax is None:
+		plt.tight_layout()
+		show_plot()
 
 def mask_img_full(i, l, filename_override=None):
 	if filename_override is None:

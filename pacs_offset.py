@@ -122,6 +122,7 @@ def get_planck_ratio_mask(planck_band_stub, setting=4):
 	return get_referenced_mask(ratio, setting=setting)
 
 def plot_cumulative_planck_ratio_mask(ax):
+	# plotting procedure for the stacked masks
 	masks = []
 	settings = [4, 5]
 	for s in settings:
@@ -135,6 +136,7 @@ def plot_cumulative_planck_ratio_mask(ax):
 	plt.title("Accumulated Planck Observation vs Dust Model Masks")
 
 def accumulate_planck_ratio_masks():
+	# stack the masks and do a bitwise AND across them
 	masks = []
 	for planck_band_stub in planck_stubs:
 		masks.append(get_planck_ratio_mask(planck_band_stub))
@@ -143,6 +145,8 @@ def accumulate_planck_ratio_masks():
 	return final_mask
 
 def get_pacs_difference_map():
+	# returns the difference map between PACS prected and observed
+	# pulls observed, creates predicted
 	# Specific to PACS
 	h_data, h_header = load_herschel_band(pacs_band_stub)
 	planck_flux = generate_planck_flux(pacs_band_stub)
@@ -228,10 +232,77 @@ def before_and_after_figure():
 	show_plot()
 
 
+def planck_mask_emma_data():
+	# load in the Planck data for this region
+	# and make ratio masks for observed vs dust model-predicted
+	pacs_filepath = dust_directory + "Herschel160umDC2742.fits"
+	# have to reference the PACS image bc the SPIRE are different (much larger) fields
+	ref_data, ref_head = getdata(pacs_filepath, header=True)
+	datas = []
+	models = []
+	ratios = []
+	stubs = []
+	for planck_band_stub in planck_stubs:
+		planck_fn = gen_planck_fn(planck_band_stub)
+		observed_planck_flux = project_healpix_to_fits(
+			open_healpix(planck_fn, nest=True),
+			ref_data, ref_head,
+			nest=True
+		)
+		observed_planck_flux *= planck_unit_conversions[planck_band_stub]
+		sky = DustModel("Per1", planck_band_stub, ref_data, ref_head, dust_directory)
+		predicted_planck_flux = sky.observe_planck(planck_band_stub)
+		ratio = observed_planck_flux / predicted_planck_flux
+		ratios.append(ratio)
+		datas.append(observed_planck_flux)
+		models.append(predicted_planck_flux)
+		stubs.append(planck_band_stub)
+	"""
+	## FOR PLOTTING
+	plt.figure(figsize=(14, 10))
+	count = 0
+	vlims = [(4, 7), (15, 21), (40, 55)]
+	for d, ratio, m, s_raw in zip(datas, ratios, models, stubs):
+		s = s_raw[1:] + " GHz"
+		print("---", s, "---")
+		print("DATA SHAPE", d.shape)
+		print("MODEL SHAPE", m.shape)
+		print("RATIO SHAPE", ratio.shape)
+		print("---", s, "---")
+		plt.subplot(3, 3, 3*count + 1)
+		plt.imshow(d, vmin=vlims[count][0], vmax=vlims[count][1], origin='lower')
+		plt.title(s +" data")
+		plt.colorbar()
+		plt.subplot(3, 3, 3*count + 2)
+		plt.imshow(ratio, vmin=0.9, vmax=1.6, origin='lower')
+		plt.title(s +" data/model ratio")
+		plt.colorbar()
+		plt.subplot(3, 3, 3*count + 3)
+		plt.imshow(m, vmin=vlims[count][0], vmax=vlims[count][1], origin='lower')
+		plt.title(s +" model")
+		plt.colorbar()
+		count += 1
+	plt.show()
+	"""
+	# setting 4 is 10%; setting 5 is 20%
+	masks = np.array([get_referenced_mask(r, setting=4) for r in ratios])
+	final_mask = np.all(masks, axis=0)
+	"""
+	## PLOT MASK
+	plt.figure(figsize=(12, 9))
+	plt.subplot(111)
+	plt.imshow(final_mask, origin='lower')
+	plt.title("Mask for determining PACS offset")
+	plt.show()
+	"""
+	return final_mask
+
+
 def offset_emma_data():
 	pacs_filepath = dust_directory + "Herschel160umDC2742.fits"
 	# pacs_filepath = region_directory + pacs_band_stub + img_stub
 	h_data, h_head = getdata(pacs_filepath, header=True)
+
 	"""
 	Ok we're dealing with Jy/pixel here. Need to sort out how to convert
 	delta angle = -8.888888988E-4 degrees
@@ -248,31 +319,64 @@ def offset_emma_data():
 
 	that should be a larger number
 	"""
+	###CONVERSION
 	angle_per_pixel = (abs(h_head['CDELT1']) + abs(h_head['CDELT2']))/2.
-	h_data /= ((np.pi/180.)**2) * (angle_per_pixel**2.)
-	h_data /= 1e6
+	pixel_unit_conversion = ((np.pi/180.)**2) * (angle_per_pixel**2.) * 1e6
+	h_data /= pixel_unit_conversion
 	sky = DustModel("Per1", "PACS160um", h_data, h_head, dust_directory)
-	# img = sky.projection_wizard
-	# look into what the hell is going on. everything is ok until here!
-	img = sky.observe_planck("PACS160um")
-	plt.figure(figsize=(15, 9))
-	plt.subplot(121)
-	plt.imshow(h_data, origin='lower', vmin=0, vmax=100)
-	plt.colorbar()
-	plt.subplot(122)
-	plt.imshow(img, origin='lower', vmin=0, vmax=100)
-	plt.colorbar()
-	show_plot()
-	return
 	p_data = sky.observe_planck("PACS160um")
+
+	h_beam, p_beam = bandpass_beam_sizes[pacs_band_stub], GNILC_resolution
+	conv_beam = prepare_convolution(WCS(h_head), h_beam, p_beam, h_data.shape)
+	h_data = convolve_properly(h_data, conv_beam)
+
+	plt.figure(figsize=(15, 9))
+	plt.subplot(231)
+	plt.imshow(h_data, origin='lower', vmin=0, vmax=20)
+	plt.title("Herschel PACS observation (convolved)")
+	plt.colorbar()
+	plt.subplot(232)
+	plt.imshow(p_data, origin='lower', vmin=75, vmax=90)
+	plt.title("Planck-predicted flux in PACS band")
+	plt.colorbar()
+
+
+	diff = p_data - h_data
+	mask = planck_mask_emma_data()
+
+	diff_plot = diff.copy()
+	diff_plot[~mask] = np.nan
+	plt.subplot(233)
+	plt.imshow(diff_plot, origin='lower', vmin=60, vmax=90)
+	plt.title("Masked difference map")
+	plt.colorbar()
+
+	histxy, stats = gen_hist_and_stats(diff, mask, x_lim=(60, 90))
+	plt.subplot(223)
+	plt.plot(*histxy, '-')
+	plt.xlabel("Predicted $-$ observed (MJy/sr)")
+	plt.ylabel("Histogram count")
+	plt.title("PACS predicted $-$ observed differences")
+
+	plt.subplot(224)
 	def histogram_pacs(d, ref, label):
-		histxy, stats = gen_hist_and_stats(d, ~np.isnan(ref), x_lim=fluxLIM)
+		histxy, stats = gen_hist_and_stats(d, ~np.isnan(ref), x_lim=(-10, 120))
 		plt.plot(*histxy, '-', label=label)
-	histogram_pacs(h_data, h_data, r"Emma's 160$\mu$m data")
-	histogram_pacs(p_data, h_data, r"Planck flux")
+	histogram_pacs(h_data, h_data, r"PACS 160$\mu$m data (convolved)")
+	histogram_pacs(p_data, h_data, r"Planck-predicted flux")
+	histogram_pacs(h_data+75, h_data, r'+75 corrected PACS data')
 	plt.legend()
 	plt.xlabel("Flux (MJy/sr)")
 	plt.ylabel("Histogram count")
+
+	print("degrees per pixel {:.2E}".format(angle_per_pixel))
+	print("unit conversion {:.2E}".format(pixel_unit_conversion))
+	native_correction = 75 * pixel_unit_conversion
+	print("75 MJy/sr correction in native units: {:.2E}".format(native_correction))
+
+
+
+
 	show_plot()
 
 

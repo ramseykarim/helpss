@@ -125,9 +125,17 @@ def get_lb_grid_arrays(projection):
     # The projection appears to work like meshgrid, so this is fine.
     # I compared using meshgrid. This is correct.
     pix_l, pix_b = projection.arrayinfo['xsize'], projection.arrayinfo['ysize']
-    l_range = projection.ij2xy(i=np.full(pix_l, 0), j=np.arange(pix_l))[0]
-    b_range = projection.ij2xy(i=np.arange(pix_b), j=np.full(pix_b, 0))[1]
-    l_range = -l_range  # FLIP SIGN ON LONGITUDE
+    # THERE IS SOMETHING WRONG WITH HEALPY
+    # probably because there is weirdness with l>180 ranges
+    # healpy uses negative versions of l, which is reflected in get_extent()
+    # BUT if you use get_center(), that only worked on my ~160 l. NOT on my ~270 l,
+    #  where I got the complement (~90)
+    # I think this fools healpy into thinking it's generating invalid coordinates, when queried with i,j
+    # So, my hacky fix is to just unmask the arrays even though healpy thinks they're junk
+    # This may cause problems somewhere, but it works for now.
+    l_range = projection.ij2xy(i=np.full(pix_l, pix_b//2), j=np.arange(pix_l))[0].data
+    b_range = projection.ij2xy(i=np.arange(pix_b), j=np.full(pix_b, pix_l//2))[1].data
+    l_range = -l_range  # FLIP SIGN ON LONGITUDE (healpy records l as negative?? needs fixing on their end)
     return l_range, b_range
 
 
@@ -169,7 +177,6 @@ class ProjectionWrapper:
         del l_target, b_target
         # Interpolate. Method options are ("linear", "nearest", "splinef2d")
         # Note that we invert the order of the longitudes to make them strictly increasing
-        print("VALUES", np.nanmedian(b_range), np.nanmedian(l_range))
         interpolated_vals_list = interpn((b_range, l_range[::-1]), image[:, ::-1], bl_target_pairs, method=method)
         interpolated_data = assign_interpolated_values(interpolated_vals_list, pix_list, self.target_fits_data.shape)
         return interpolated_data
