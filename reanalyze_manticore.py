@@ -1,4 +1,4 @@
-plotting_remotely = True
+plotting_remotely = False
 import numpy as np
 import matplotlib
 if plotting_remotely:
@@ -85,6 +85,9 @@ nominal_3p_soln = soln_3p_plus046
 
 dl3_2p_soln = "T4-absdiff-Per1J-plus045-DL3.fits"
 dl3_3p_soln = "T4-absdiff-Per1J-3param-plus045-DL3.fits"
+
+md_oh5_soln = "T4-absdiff-Per1J-3param-plus045-cOH5hDL3.fits"
+md_dl5_soln = "T4-absdiff-Per1J-3param-plus045-cDL5hDL3.fits"
 
 frames_2p = (1, 3, 5)
 frames_3p = (1, 3, 7)
@@ -708,18 +711,18 @@ if __name__ == "__main__":
 	# masking_attempt()
 
 	#### NEW DUST MODEL: DL3
-	fno = dl3_3p_soln
-	mask = masking_dl3_3p()
-	msk1 = masking_attempt()
-	# plt.figure(figsize=(16, 10))
+	fno = md_oh5_soln
+	mask = None#masking_dl3_3p()
+	msk1 = None#masking_attempt()
+	#plt.figure(figsize=(16, 10))
 
 	# Cold temperature
 	# mtc.quickrun_image_masked_full(1, msk1, l=(5, 13), filename_override=None,
 	# 	ax=plt.subplot(121))
 	# plt.title("OH5")
-	mtc.quickrun_image_masked_full(1, mask, l=(5, 13), filename_override=fno,)
+	# mtc.quickrun_image_masked_full(1, mask, l=(5, 15), filename_override=fno,)
 	# 	ax=plt.subplot(122))
-	plt.title("DL3")
+	#plt.title("DL3")
 
 	# Cold column
 	# mtc.quickrun_image_masked_full(3, msk1, l=(21.5, 23.5), filename_override=None,
@@ -733,7 +736,7 @@ if __name__ == "__main__":
 	# mtc.quickrun_image_masked_full(7, msk1, l=(20.5, 22.5), filename_override=None,
 	# 	ax=plt.subplot(121))
 	# plt.title("OH5")
-	# mtc.quickrun_image_masked_full(7, mask, l=(20.5, 22.5), filename_override=fno,)
+	mtc.quickrun_image_masked_full(7, mask, l=(20.5, 22.5), filename_override=fno,)
 		# ax=plt.subplot(122))
 	# plt.title("DL3")
 
@@ -741,12 +744,13 @@ if __name__ == "__main__":
 	"""
 	fno = dl3_2p_soln
 	plt.figure(figsize=(16, 12))
-	# mtc.quickrun_2pimage_masked_full(1, None, l=(5, 17), filename_override=None, ax=plt.subplot(121))
+	#mtc.quickrun_2pimage_masked_full(1, None, l=(5, 17), filename_override=None, ax=plt.subplot(121))
 	mtc.quickrun_2pimage_masked_full(3, None, l=(20, 23), filename_override=None, ax=plt.subplot(121))
 	plt.title("OH5")
-	# mtc.quickrun_2pimage_masked_full(1, None, l=(5, 17), filename_override=fno, ax=plt.subplot(122))
+	#mtc.quickrun_2pimage_masked_full(1, None, l=(5, 17), filename_override=fno, ax=plt.subplot(122))
 	mtc.quickrun_2pimage_masked_full(3, None, l=(20, 23), filename_override=fno, ax=plt.subplot(122))
 	plt.title("DL3")
+	
+	plt.tight_layout()
 	"""
-	# plt.tight_layout()
-	# show_plot()
+	show_plot()
