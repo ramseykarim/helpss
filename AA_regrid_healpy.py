@@ -5,8 +5,11 @@ from astropy.coordinates import SkyCoord, FK5, Angle
 from astropy import units as u
 import sys
 from collections import deque
-import healpy as hp
-from scipy.interpolate import interpn#, RectBivariateSpline # (could also work!)
+try:
+    import healpy as hp
+except ModuleNotFoundError:
+    hp = None
+from scipy.interpolate import interpn, griddata#, RectBivariateSpline # (could also work!)
 
 
 FN_T = "COM_CompMap_Dust-GNILC-Model-Temperature_2048_R2.00.fits"
@@ -181,6 +184,73 @@ class ProjectionWrapper:
         interpolated_data = assign_interpolated_values(interpolated_vals_list, pix_list, self.target_fits_data.shape)
         return interpolated_data
 
+
+def constrain_coordinates(coordinate_list, pixel_list, limits):
+    # filter coordinates to be between RA and DEC limits
+    # coordinate array is (N, 2) in RA, DEC order
+    # limits are ((ra_lo, ra_hi), (dec_lo, dec_hi))
+    # ------
+    # get limits
+    ra_lo, ra_hi = limits[0]
+    dec_lo, dec_hi = limits[1]
+    # split RA and DEC
+    ra_list, dec_list = coordinate_list[:, 0], coordinate_list[:, 1]
+    # make target mask
+    ra_mask = (ra_list >= ra_lo) & (ra_list <= ra_hi)
+    dec_mask = (dec_list >= dec_lo) & (dec_list <= dec_hi)
+    coord_mask = ra_mask & dec_mask
+    # apply mask
+    ra_list = ra_list[coord_mask]
+    dec_list = dec_list[coord_mask]
+    # apply mask to pixel list too
+    pix_i, pix_j = pixel_list[:, 0], pixel_list[:, 1]
+    pix_i, pix_j = pix_i[coord_mask], pix_j[coord_mask]
+    return np.stack((ra_list, dec_list), axis=1), np.stack((pix_i, pix_j), axis=1)
+
+
+def regrid_to_reference(target_array, target_fits_header, source_array, source_fits_header,
+    limits=None):
+    # general-use regrid function for standard FITS files
+    # regrids the source values to the target grid
+    # assumes that you've selected overlapping regions
+    # if limits is not None, should be ((ra_lo, ra_hi), (dec_lo, dec_hi))
+    # ------
+    # get pixel lists for both target and source
+    t_pix_list = get_ij_list(target_array.shape, mask=~np.isnan(target_array))
+    s_pix_list = get_ij_list(source_array.shape, mask=~np.isnan(source_array))
+    # we did some dark magic with the coordinate ordering so it has to be like this
+    # coordinate list for target
+    t_coord_list = WCS(target_fits_header).wcs_pix2world(t_pix_list, 0)
+    # coordinate list for source
+    s_coord_list = WCS(source_fits_header).wcs_pix2world(s_pix_list, 0)
+    # clean target coordinates if limits exist
+    if limits is not None:
+        t_coord_list, t_pix_list = constrain_coordinates(t_coord_list, t_pix_list, limits)
+        s_coord_list, s_pix_list = constrain_coordinates(s_coord_list, s_pix_list, limits)
+        # find cropped target grid
+        min_i, min_j = np.min(t_pix_list[:, 1]), np.min(t_pix_list[:, 0])
+        max_i, max_j = np.max(t_pix_list[:, 1]), np.max(t_pix_list[:, 0])
+    s_value_list = source_array[s_pix_list[:, 1], s_pix_list[:, 0]]
+    # (though this is also cool) vv (does the same as above but with zip/map)
+    # s_value_list = source_array[tuple(zip(*map(tuple, s_pix_list)))]
+    # interpolate!
+    interpolated_vals_list = griddata(s_coord_list, s_value_list, t_coord_list, method='linear')
+    if limits is not None:
+        t_value_list = target_array[t_pix_list[:, 1], t_pix_list[:, 0]]
+        # grid the data
+        t_pix_list[:, 1] -= min_i
+        t_pix_list[:, 0] -= min_j
+        interpolated_data = assign_interpolated_values(interpolated_vals_list,
+            t_pix_list, (max_i - min_i + 1, max_j - min_j + 1))
+        # return the smaller target section too
+        cropped_target_data = assign_interpolated_values(t_value_list,
+            t_pix_list, (max_i - min_i + 1, max_j - min_j + 1))
+        return interpolated_data, cropped_target_data
+    else:
+        # grid the data
+        interpolated_data = assign_interpolated_values(interpolated_vals_list,
+            t_pix_list, target_array.shape)
+        return interpolated_data
 
 def open_healpix(filename, nest=False):
     # Shortcut to opening a HEALPix map, so healpy need not be imported for a single call

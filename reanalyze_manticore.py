@@ -89,6 +89,11 @@ dl3_3p_soln = "T4-absdiff-Per1J-3param-plus045-DL3.fits"
 md_oh5_soln = "T4-absdiff-Per1J-3param-plus045-cOH5hDL3.fits"
 md_dl5_soln = "T4-absdiff-Per1J-3param-plus045-cDL5hDL3.fits"
 
+md_dl5_rev = "T4-absdiff-Per1J-3param-plus045-cDL3hDL5.fits"
+md_oh5_rev = "T4-absdiff-Per1J-3param-plus045-cDL3hOH5.fits"
+md_fail = "T4-absdiff-Per1J-3param-plus045-cFAILhOH5.fits"
+
+
 frames_2p = (1, 3, 5)
 frames_3p = (1, 3, 7)
 def load_manticore(filename, frames=None):
@@ -684,18 +689,19 @@ def maxdTvsN():
 	plt.tight_layout()
 	show_plot()
 
-def masking_dl3_3p():
-	fno = dl3_3p_soln
+def masking_dl3_3p(fno=md_oh5_soln):
 	# Shortcut for overriding the source filename with the DL3 run
 	def dl3_mask_shortcut(*args):
 		return mtc.mask_img_full(*args, filename_override=fno)
 	# Filter out Nc and Nh below 0
 	mask = dl3_mask_shortcut(3, (0, np.inf))
-	# mask &= dl3_mask_shortcut(7, (0, np.inf))
+	mask &= dl3_mask_shortcut(7, (0, np.inf))
 	# Filter dT at below 2 K
-	# mask &= dl3_mask_shortcut(2, (0, 2))
+	mask &= dl3_mask_shortcut(2, (0, 2))
+	# Filter Tc at below Th
+	# mask &= dl3_mask_shortcut(1, (0, 14.2))
 	# Filter dNc at below 10**22
-	# mask &= dl3_mask_shortcut(4, (0, 10**22))
+	mask &= dl3_mask_shortcut(4, (0, 10**21.5))
 	return mask
 
 if __name__ == "__main__":
@@ -712,34 +718,48 @@ if __name__ == "__main__":
 
 	#### NEW DUST MODEL: DL3
 	fno = md_oh5_soln
-	mask = None#masking_dl3_3p()
-	msk1 = None#masking_attempt()
-	#plt.figure(figsize=(16, 10))
+	stub_new = "OH5/DL3"
+
+	# fno_old = md_dl5_soln
+	# stub_old = "DL5/DL3"
+
+	fno_old = dl3_3p_soln
+	stub_old = "DL3 only"
+
+	# fno_old = nominal_3p_soln
+	# stub_old = "OH5 only"
+
+	mask = None#masking_dl3_3p(fno=fno)
+	msk1 = mask#masking_dl3_3p(fno=fno_old)
+	plt.figure(figsize=(16, 10))
 
 	# Cold temperature
-	# mtc.quickrun_image_masked_full(1, msk1, l=(5, 13), filename_override=None,
-	# 	ax=plt.subplot(121))
-	# plt.title("OH5")
-	# mtc.quickrun_image_masked_full(1, mask, l=(5, 15), filename_override=fno,)
-	# 	ax=plt.subplot(122))
-	#plt.title("DL3")
-
+	#"""
+	mtc.quickrun_image_masked_full(1, msk1, l=(8, 13), filename_override=fno_old,
+		ax=plt.subplot(231))
+	plt.title(stub_old+" Tc")
+	mtc.quickrun_image_masked_full(1, mask, l=(8, 13), filename_override=fno,
+		ax=plt.subplot(234))
+	plt.title(stub_new+" Tc")
+	#"""
 	# Cold column
-	# mtc.quickrun_image_masked_full(3, msk1, l=(21.5, 23.5), filename_override=None,
-	# 	ax=plt.subplot(121))
-	# plt.title("OH5")
-	# mtc.quickrun_image_masked_full(3, mask, l=(21.5, 23.5), filename_override=fno,)
-	# 	ax=plt.subplot(122))
-	# plt.title("DL3")
-
+	#"""
+	mtc.quickrun_image_masked_full(3, msk1, l=(21., 23.), filename_override=fno_old,
+		ax=plt.subplot(232))
+	plt.title(stub_old+" Nc")
+	mtc.quickrun_image_masked_full(3, mask, l=(21., 23.), filename_override=fno,
+		ax=plt.subplot(235))
+	plt.title(stub_new+" Nc")
+	#"""
 	# Hot column :(
-	# mtc.quickrun_image_masked_full(7, msk1, l=(20.5, 22.5), filename_override=None,
-	# 	ax=plt.subplot(121))
-	# plt.title("OH5")
-	mtc.quickrun_image_masked_full(7, mask, l=(20.5, 22.5), filename_override=fno,)
-		# ax=plt.subplot(122))
-	# plt.title("DL3")
-
+	#"""
+	mtc.quickrun_image_masked_full(7, msk1, l=(20.5, 22.5), filename_override=fno_old,
+		ax=plt.subplot(233))
+	plt.title(stub_old+" Nh")
+	mtc.quickrun_image_masked_full(7, mask, l=(20.5, 22.5), filename_override=fno,
+		ax=plt.subplot(236))
+	plt.title(stub_new+" Nh")
+	#"""
 
 	"""
 	fno = dl3_2p_soln
@@ -751,6 +771,6 @@ if __name__ == "__main__":
 	mtc.quickrun_2pimage_masked_full(3, None, l=(20, 23), filename_override=fno, ax=plt.subplot(122))
 	plt.title("DL3")
 	
-	plt.tight_layout()
 	"""
+	plt.tight_layout()
 	show_plot()
