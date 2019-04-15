@@ -28,9 +28,16 @@ home_stub = "/n/sgraraid/filaments/data/"
 # Per 1 specific filenames and stuff
 dir_stub = "%sTEST4/Per/testregion1342190326JS/" % home_stub
 field_stub = "Per1J"
+# these two are older; not sure what parts of the sky they are
 c1_coord = SkyCoord("3:29:07.738 +31:20:28.05", frame=FK5, unit=(u.hourangle, u.deg))
 c2_coord = SkyCoord("3:36:23.014 +31:13:04.54", frame=FK5, unit=(u.hourangle, u.deg))
-c_coords = {0: None}
+# this is newer (April 5, 2019) and is most of the Per1 region
+c3_coord = SkyCoord("3:30:18.406 +30:53:09.30", frame=FK5, unit=(u.hourangle, u.deg))
+# this is also newer, smaller box to try to run the CMB manticore
+c4_coord = SkyCoord("3:30:26.584 +29:58:56.26", frame=FK5, unit=(u.hourangle, u.deg))
+c5_coord = SkyCoord("3:33:06.408 +31:08:03.71", frame=FK5, unit=(u.hourangle, u.deg))
+
+c_coords = {0: (c4_coord, 0.83, 0.58), 1: (c5_coord, 0.55, 0.84)}
 
 # Generator expressions for FITS image names
 fn_2paramfit = "%sT4-absdiff-%s-4bandLErr.fits" % (dir_stub, field_stub)
@@ -44,28 +51,32 @@ fn_cropped_Herschel = lambda band, n: "%s%s-image-cropped%d.fits" % (dir_stub, b
 # =====================================================
 
 
-def crop_original(herschel_band_index):
+def crop_original(coords, source_filename, target_filename, cropped_width=3):
 	"""
 	Crop the images!
 	Saves the fits file
 	"""
-	cropped_width = 3
-	xbox, ybox = cropped_width*u.deg, cropped_width*u.deg
+	try:
+		# can use tuple (dx, dy) for width
+		# dy should be d_dec, dx should be d_ra
+		xbox, ybox = cropped_width[0]*u.deg, cropped_width[1]*u.deg
+	except TypeError:
+		xbox, ybox = cropped_width*u.deg, cropped_width*u.deg
 
-	print("load up", fn_Herschel(herschel_band_stubs[herschel_band_index]))
 
-	with fits.open(fn_Herschel(herschel_band_stubs[herschel_band_index])) as hdul:
+	print("load up", source_filename)
+
+	with fits.open(source_filename) as hdul:
 		d = hdul[0].data
 		h = hdul[0].header
 		w = WCS(h)
 	w.cunit1, w.cunit2 = "Degrees", "Degrees"
 
-	for j in c_coords:
-		print("wrote to", fn_cropped_Herschel(herschel_band_stubs[herschel_band_index], j))
-		d_c = Cutout2D(d, c_coords[j], (ybox, xbox), wcs=w)
-		h.update(d_c.wcs.to_header())
-		fits.writeto(fn_cropped_Herschel(herschel_band_stubs[herschel_band_index], j),
-			d_c.data, h, overwrite=True)
+	print("wrote to", target_filename)
+	d_c = Cutout2D(d, coords, (ybox, xbox), wcs=w)
+	h.update(d_c.wcs.to_header())
+	fits.writeto(target_filename,
+		     d_c.data, h, overwrite=True)
 
 	print("")
 	# we have run the above function only on Per1 SPIRE 350 (Dec 12, 2018 2:49 pm)
@@ -153,8 +164,20 @@ def regrid_Planck(herschel_band_index, planck_band_index):
 			herschel_band_stubs[herschel_band_index], i))
 
 if __name__ == '__main__':
-	# put indices from 0-3 in the to-do-list
-	to_do_list = [2]
-	for i in to_do_list:
-		# crop_original(i)
-		regrid_Planck(i, 0)
+	img1 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/PACS160um-plus045-image-remapped-conv"
+	img2 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/SPIRE250um-image-remapped-conv"
+	img3 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/SPIRE350um-image-remapped-conv"
+	img4 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/SPIRE500um-image-remapped-conv"
+	err1 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/PACS160um-error-remapped-conv"
+	err2 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/SPIRE250um-error-remapped-conv"
+	err3 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/SPIRE350um-error-remapped-conv"
+	err4 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/SPIRE500um-error-remapped-conv"
+	all_files = [img1, img2, img3, img4, err1, err2, err3, err4]
+	for f in all_files:
+		for i in c_coords:
+			coord, dx, dy = c_coords[i]
+			source_filename = "/n" + f + ".fits"
+			target_filename = "/n" + f + "-crop{}.fits".format(str(int(i)))
+			crop_original(coord, source_filename, target_filename, cropped_width=(dx, dy))
+
+
