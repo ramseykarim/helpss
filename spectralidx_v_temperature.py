@@ -112,7 +112,7 @@ def fitted_beta_plot():
 	beta_range = np.arange(1.3, 2.4, 0.02)
 	mean_curve = polynomial(beta_range, meanfit)
 	median_curve = polynomial(beta_range, medianfit)
-	
+
 	mean_soln = beta_range[mean_curve == np.min(mean_curve)]
 	median_soln = beta_range[median_curve == np.min(median_curve)]
 	print("MEAN-minimized beta: ", mean_soln)
@@ -166,7 +166,7 @@ def fitted_beta_COLD_plot():
 		# beta_range = np.arange(1.3, 2.4, 0.02)
 		# mean_curve = polynomial(beta_range, meanfit)
 		# median_curve = polynomial(beta_range, medianfit)
-		
+
 		# mean_soln = beta_range[mean_curve == np.min(mean_curve)]
 		# median_soln = beta_range[median_curve == np.min(median_curve)]
 		# print("MEAN-minimized beta: ", mean_soln)
@@ -204,7 +204,7 @@ def fitted_beta_COLD_plot():
 
 def main_beta_plot():
 	plt.figure(figsize=(14, 9))
-	
+
 	d, h = fits.getdata(gen_power_fn("2.50"), header=1)
 	m_thin = fits.getdata(m_junk_fn).astype(bool) # has nan areas
 	m_fila = mask_img_full(1, (0, 13.5), filename_override=gen_power_fn("1.50"))
@@ -213,26 +213,26 @@ def main_beta_plot():
 	# for i in range(3):
 	# 	m_fila = get_mask(m_fila, n=6, min_size=15, dilation=0)
 	m_fila = get_mask(m_fila, n=1, min_size=2, dilation=1)
-	
+
 	# d[~m_fila] = np.nan
 	# plt.imshow(d, origin='lower', vmin=10, vmax=14)
 	# plt.show()
 	# sys.exit()
 	# m_fila = fits.getdata(m_fila_fn).astype(bool)
-	
+
 	def mask_T_and_plot(data, mask, ax, x_lim=(8, 23), **kwargs):
 		d_flat = data[mask & ~np.isnan(data)].flatten()
 		plt.sca(ax)
 		plt.plot(*histogram(d_flat, x_lim=x_lim), **kwargs)
-		
-		
+
+
 	def typical_Xs_plot(data, mask, ax, beta, **kwargs):
 		avg, med = np.nanmean(data[mask]), np.nanmedian(data[mask])
 		plt.sca(ax)
 		plt.plot([beta], [avg], 'o', **kwargs)
 		plt.plot([beta], [med], '+', **kwargs)
-		
-			
+
+
 	plt.figure(1)
 	ax_fila = plt.subplot2grid((2, 5), (0, 0), colspan=3)
 	ax_thin = plt.subplot2grid((2, 5), (1, 0), colspan=3)
@@ -265,7 +265,7 @@ def main_beta_plot():
 	plt.imshow(dc, origin='lower', vmin=10, vmax=15)
 	plt.colorbar()
 	plt.title("Filament mask")
-	
+
 	dc = d.copy()
 	dc[~m_thin] = np.nan
 	plt.sca(ax_m_thin)
@@ -275,7 +275,7 @@ def main_beta_plot():
 	# plt.sca(ax_Xs_hist)
 	# plt.yscale('log')
 	# plt.legend()
-	
+
 	plt.tight_layout()
 	plt.show()
 
@@ -408,6 +408,28 @@ def negative_Nc_mask():
 	return
 	"""
 	return Nc_mask
+
+
+def best_beta_per_pixel():
+	nanmask = negative_Nc_mask()
+	Xs_stack = []
+	for beta in powers:
+		if float(beta) > 2.3:
+			continue
+		with fits.open(gen_3p_power_fn(beta, "1.80")) as hdul:
+			Xs = hdul[9].data
+			dT = hdul[2].data
+			Nc = hdul[3].data
+			Nh = hdul[7].data
+			bad_mask = (dT <= 0)
+			bad_mask |= (Nc < 0) | (Nh < 0)
+			bad_mask |= ~nanmask
+			Xs[bad_mask] = np.inf
+			Xs_stack.append(Xs)
+	Xsmin = np.argmin(Xs, axis=0)
+	plt.imshow(Xsmin, origin='lower')
+	plt.show()
+
 
 if __name__ == "__main__":
 	# Planck_T_agreement_plot()
