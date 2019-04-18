@@ -7,7 +7,7 @@ import AA_regrid_healpy as rhp
 
 from astropy.wcs import WCS
 from astropy.nddata.utils import Cutout2D
-from astropy.coordinates import SkyCoord, FK5
+from astropy.coordinates import SkyCoord, FK5, Galactic, Angle
 from astropy import units as u
 
 import planck_mask
@@ -22,6 +22,7 @@ gb_N_fn = gb_dir + "HGBS_perseus_column_density_map.fits"
 gb_TN_fn = per1_dir+"GB_TN_map_regrid.fits"
 
 zari_fn = "/n/pleiades/lgm/Dropbox/Perseus/zari-planck_herschel_fit.fits"
+zari_rg_fn = per1_dir + "zari_T_map_regrid.fits"
 
 band_shortcut = {
 	160: "PACS160um",
@@ -32,11 +33,11 @@ band_shortcut = {
 our_fn_gen = lambda s: "{}{}-image.fits".format(per1_dir, band_shortcut[s])
 DL3_T_fn = per1_dir + "T4-absdiff-Per1J-plus045-DL3.fits"
 OH5_T_fn = per1_dir + "T4-absdiff-Per1J-plus045.fits"
-pow2_T_fn = per1_dir + "T4-absdiff-Per1J-plus045-pow-1000-0.1-2.0.fits"
-pow18_T_fn = per1_dir + "T4-absdiff-Per1J-plus045-pow-1000-0.1-1.8.fits"
-pow17_T_fn = per1_dir + "T4-absdiff-Per1J-plus045-pow-1000-0.1-1.7.fits"
-pow16_T_fn = per1_dir + "T4-absdiff-Per1J-plus045-pow-1000-0.1-1.6-3band.fits"
-pow15_T_fn = per1_dir + "T4-absdiff-Per1J-plus045-pow-1000-0.1-1.5.fits"
+pow2_T_fn = per1_dir + "T4-absdiff-Per1J-plus045-pow-1000-0.1-2.00.fits"
+pow18_T_fn = per1_dir + "T4-absdiff-Per1J-plus045-pow-1000-0.1-1.80.fits"
+pow17_T_fn = per1_dir + "T4-absdiff-Per1J-plus045-pow-1000-0.1-1.70.fits"
+pow16_T_fn = per1_dir + "T4-absdiff-Per1J-plus045-pow-1000-0.1-1.60.fits"
+pow15_T_fn = per1_dir + "T4-absdiff-Per1J-plus045-pow-1000-0.1-1.50.fits"
 power_fns = {2.0: pow2_T_fn, 1.8: pow18_T_fn,
              1.7: pow17_T_fn, 1.6: pow16_T_fn,
 	     1.5: pow15_T_fn}
@@ -45,6 +46,8 @@ DL3_crop_fn = per1_dir + "T4-absdiff-Per1J-plus045-DL3-crop1.fits"
 DL3_CMB_crop_fn = per1_dir + "T4-absdiff-Per1J-plus045-DL3-CMB-crop1.fits"
 OH5_CMB_crop_fn = per1_dir + "T4-absdiff-Per1J-plus045-OH5-CMB-crop1.fits"
 OH5_crop_fn = per1_dir + "T4-absdiff-Per1J-plus045-OH5-crop1.fits"
+
+GNILC_T_fn = per1_dir + "dustModel_Per1_SPIRE500umgrid_Temperature.fits"
 
 def plot_frame(filename, frame, vmin, vmax, ax, title="",
 	       f=None):
@@ -76,8 +79,46 @@ def get_zari():
 		T = data[2, :, :]
 		beta = data[4, :, :]
 		Xs = data[6, :, :]
-	return beta, head
+	return T, head
 
+
+if __name__ == "__main__":
+	print("put some code here")
+
+
+
+"""
+## REGRIDDING GALACTIC TO FK5
+T_z, h_z = get_zari()
+# g, h = fits.getdata(gb_TN_fn, 1, header=True)
+def zari_pix2world(pix_ji_list):
+	print("For Zari+2016, converting")
+	w = WCS(h_z).celestial
+	lb = w.wcs_pix2world(pix_ji_list, 0)
+	print("Galactic LON,LAT")
+	print(lb)
+	l, b = lb[:, 0], lb[:, 1]
+	coord_list = SkyCoord(Angle(l, unit=u.deg), b*u.deg, frame=Galactic)
+	radec = np.stack([coord_list.fk5.ra.degree, coord_list.fk5.dec.degree], axis=1)
+	print("to RA,DEC")
+	print(radec)
+	return radec
+
+T_h, h_h = fits.getdata(pow2_T_fn, 1, header=True)
+def helpss_pix2world(pix_ji_list):
+	radec = WCS(h_h).wcs_pix2world(pix_ji_list, 0)
+	print("For HELPSS, returning")
+	print("RA,DEC")
+	print(radec)
+	return radec
+
+h_h['COMMENT'] = "Zari+2016 T map (Ramsey Apr 15, 2019)"
+zari_data_regridded = rhp.regrid_to_reference(T_h, helpss_pix2world, T_z, zari_pix2world)
+fits.writeto(zari_rg_fn, zari_data_regridded, h_h)
+print("Written to ", zari_rg_fn)
+"""
+
+"""
 # Examine Sadavoy paper B1-E region (and Zari 2016)
 sadavoy_coord = SkyCoord("3:36:20.00 +31:12:00.00", frame=FK5, unit=(u.hourangle, u.deg))
 sadavoy_dimensions = (14*u.arcminute, (105./3600)*u.hourangle) # Dec, RA (reversed)
@@ -88,8 +129,8 @@ our20_T_map, head = fits.getdata(pow2_T_fn, 1, header=True)
 our20_w = WCS(head)
 our16_T_map, head = fits.getdata(pow16_T_fn, 1, header=True)
 our16_w = WCS(head)
-zari_T_map, head = get_zari()
-zari_w = WCS(head, naxis=2)
+zari_T_map, head = fits.getdata(zari_rg_fn, header=True)
+zari_w = WCS(head)
 
 gb_cut = Cutout2D(gb_T_map, sadavoy_coord, sadavoy_dimensions, wcs=gb_w)
 our20_cut = Cutout2D(our20_T_map, sadavoy_coord, sadavoy_dimensions, wcs=our20_w)
@@ -97,14 +138,6 @@ our16_cut = Cutout2D(our16_T_map, sadavoy_coord, sadavoy_dimensions, wcs=our16_w
 zari_cut = Cutout2D(zari_T_map, sadavoy_coord, sadavoy_dimensions, wcs=zari_w)
 del gb_T_map, our20_T_map, our16_T_map, zari_T_map
 
-plt.figure(figsize=(14, 9))
-plt.subplot(111)
-plt.imshow(zari_cut.data, origin='lower', vmin=1.59, vmax=1.62)
-plt.colorbar()
-plt.title(r"Zari+2016 $\beta$")
-plt.show()
-
-"""
 plt.figure(figsize=(14, 9))
 plt.subplot(221)
 plt.imshow(gb_cut.data, origin='lower', vmin=12, vmax=20)
@@ -122,18 +155,7 @@ plt.subplot(224)
 plt.imshow(our16_cut.data, origin='lower', vmin=12, vmax=20)
 plt.title(r"HELPSS T map, $\beta=1.6$")
 plt.colorbar()
-"""
-"""
-plt.subplot(325)
-plt.imshow(gb_cut.data - our20_cut.data, origin='lower')
-plt.title("GB map minus HELPSS 2.0 map")
-plt.colorbar()
-plt.subplot(326)
-plt.imshow(zari_cut.data - our16_cut.data, origin='lower')
-plt.title("Zari map minus HELPSS 1.6 map")
-plt.colorbar()
-"""
-"""
+
 plt.figure(figsize=(14, 9))
 plt.subplot(111)
 histogram(gb_cut.data.flatten(), x_lim=(12, 20), label="GB", text=0)
@@ -144,16 +166,9 @@ plt.xlabel("T (k)")
 plt.ylabel("Histogram Count")
 plt.title("Temperature histograms in cutout region")
 plt.legend()
-"""
+
 plt.show()
-
-
-
-
-
-
-
-
+"""
 
 # plt.figure(figsize=(12, 10))
 #axes = iter([plt.subplot(221 + i) for i in range(4)])

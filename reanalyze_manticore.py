@@ -157,7 +157,7 @@ def pacs_vs_spire_ratio():
 
 def cleaner_core_mask():
 	mask = mtc.get_better_core()
-	return get_mask(mask, n=4, dilation=3)
+	return get_mask(mask, n=4, dilation=3) # dilation was 3, n was 4
 
 
 def cleaner_envelope_mask():
@@ -644,8 +644,8 @@ def definitive_hotT_method():
 	err_hotT = stats[1]
 	return hot_T, err_hotT
 
-def masking_attempt(max_dT=2, n=4,
-	filename_override=None):
+def masking_attempt(max_dT=2, max_dN=10**22,
+	n=4, filename_override=None):
 	"""
 	The mask is built on:
 	1) requiring all 4 bands to be present
@@ -658,7 +658,7 @@ def masking_attempt(max_dT=2, n=4,
 		filename_override=filename_override)
 	# ADDED A dNc MASK, it works very well to clean out the remaining
 	# problem regions
-	mask &= mtc.mask_img_full(4, (0, 10**22),
+	mask &= mtc.mask_img_full(4, (0, max_dN),
 		filename_override=filename_override)
 	# mask = fill_inwards(mask, mtc.get_pacs_mask(), n=n, min_size=3)
 	return mask

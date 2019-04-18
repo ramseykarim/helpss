@@ -101,7 +101,11 @@ def load_3param_TcThNcNh(filename):
 
 
 def load_specific_frame(filename, frame):
-	return fits.getdata(dir_per1 + filename, frame)
+	if dir_per1 in filename:
+		fn = filename
+	else:
+		fn = dir_per1 + filename
+	return fits.getdata(fn, frame)
 
 
 def load_specific_frames(filename, frames=None):

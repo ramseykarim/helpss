@@ -1,4 +1,4 @@
-plotting_remotely = True
+plotting_remotely = False
 import numpy as np
 import matplotlib
 if plotting_remotely:
@@ -49,6 +49,9 @@ nominal_2p_soln = soln_2p_plus045 # 15.7 K
 nominal_3p_soln = soln_3p_plus045
 
 dl3_2p_soln = "T4-absdiff-Per1J-plus045-DL3.fits" # this one is 14.2 K!
+soln_2p_pow16 = "T4-absdiff-Per1J-plus045-pow-1000-0.1-1.60.fits" # 17.40!
+soln_2p_pow17 = "T4-absdiff-Per1J-plus045-pow-1000-0.1-1.70.fits" # 16.64
+soln_2p_pow18 = "T4-absdiff-Per1J-plus045-pow-1000-0.1-1.80.fits" # 15.95
 
 def load_manticore(filename, frames=None):
 	if frames is None:
@@ -65,7 +68,7 @@ def poly(x, a, b, c):
 
 prep_arr = lambda a, b: np.array([a, b]).T.flatten()
 
-T, Xs = load_manticore(dl3_2p_soln, frames=(1, 5))
+T, Xs = load_manticore(soln_2p_pow18, frames=(1, 5))
 
 
 BINS = 128
@@ -123,8 +126,13 @@ def plot_apply_mask(Xs_limit):
 	com = center_of_mass(*values)
 	mode = classic_mode(*values)
 	parab_peak, parab_values = parabola_peak(*values, return_fit=True)
-	consensus = np.mean([com, mode, parab_peak])
-	plt.plot(*histxy, '-', label=r'$\chi^2$ < {:.2f} mask: T={:.2f}K'.format(Xs_limit, consensus))
+	try:
+		consensus = np.mean([com, mode, parab_peak])[0]
+	except IndexError:
+		consensus = np.mean([com, mode, parab_peak])		
+	label_txt = r'$\chi^2$ < {:.2f} mask: T={:.2f}K'.format(
+		Xs_limit, consensus)
+	plt.plot(*histxy, '-', label=label_txt)
 	plt.plot([com, com], peak_val_default_limits, '--', color='k')
 	plt.plot([mode, mode], peak_val_default_limits, '--', color='k')
 	plt.plot([parab_peak, parab_peak], peak_val_default_limits, '--', color='k')

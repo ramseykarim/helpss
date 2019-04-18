@@ -129,17 +129,18 @@ def get_planck_mask():
 
 def fill_inwards(array, nanmask, min_size=800, n=8):
 	# nanmask is false if NaN
-	sorted_ones = get_islands(array&nanmask, n)
-	sorted_ones.sort(key=len, reverse=True)
-	a_copy = np.full(array.shape, False)
-	for positive_set in sorted_ones:
-		if len(positive_set) > min_size:
-			a_copy[tuple(zip(*positive_set))] = True
-	# sorted_zeros = get_islands((~a_copy)&nanmask, 0)
-	# sorted_zeros.sort(key=len, reverse=True)
-	# outside_space = sorted_zeros.pop(0)
-	# for negative_set in sorted_zeros:
-	# 	a_copy[tuple(zip(*negative_set))] = True
+	# sorted_ones = get_islands(array&nanmask, n)
+	# sorted_ones.sort(key=len, reverse=True)
+	# a_copy = np.full(array.shape, False)
+	# for positive_set in sorted_ones:
+	# 	if len(positive_set) > min_size:
+	# 		a_copy[tuple(zip(*positive_set))] = True
+	a_copy = array.copy()
+	sorted_zeros = get_islands((~a_copy)&nanmask, 0)
+	sorted_zeros.sort(key=len, reverse=True)
+	outside_space = sorted_zeros.pop(0)
+	for negative_set in sorted_zeros:
+		a_copy[tuple(zip(*negative_set))] = True
 	return a_copy.astype(bool)
 
 

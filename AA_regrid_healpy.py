@@ -208,9 +208,10 @@ def constrain_coordinates(coordinate_list, pixel_list, limits):
     return np.stack((ra_list, dec_list), axis=1), np.stack((pix_i, pix_j), axis=1)
 
 
-def regrid_to_reference(target_array, target_fits_header, source_array, source_fits_header,
+def regrid_to_reference(target_array, target_pix2world, source_array, source_pix2world,
     limits=None):
     # general-use regrid function for standard FITS files
+    # pix2world should take in 0-indexed X, Y (col j, row i) and return RA, DEC
     # regrids the source values to the target grid
     # assumes that you've selected overlapping regions
     # if limits is not None, should be ((ra_lo, ra_hi), (dec_lo, dec_hi))
@@ -220,9 +221,9 @@ def regrid_to_reference(target_array, target_fits_header, source_array, source_f
     s_pix_list = get_ij_list(source_array.shape, mask=~np.isnan(source_array))
     # we did some dark magic with the coordinate ordering so it has to be like this
     # coordinate list for target
-    t_coord_list = WCS(target_fits_header).wcs_pix2world(t_pix_list, 0)
+    t_coord_list = target_pix2world(t_pix_list)
     # coordinate list for source
-    s_coord_list = WCS(source_fits_header).wcs_pix2world(s_pix_list, 0)
+    s_coord_list = source_pix2world(s_pix_list)
     # clean target coordinates if limits exist
     if limits is not None:
         t_coord_list, t_pix_list = constrain_coordinates(t_coord_list, t_pix_list, limits)
