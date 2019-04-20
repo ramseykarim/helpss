@@ -49,6 +49,8 @@ OH5_crop_fn = per1_dir + "T4-absdiff-Per1J-plus045-OH5-crop1.fits"
 
 GNILC_T_fn = per1_dir + "dustModel_Per1_SPIRE500umgrid_Temperature.fits"
 
+multi_beta_fn = per1_dir + "single_component_multi_beta.fits"
+
 def plot_frame(filename, frame, vmin, vmax, ax, title="",
 	       f=None):
 	try:
@@ -83,7 +85,17 @@ def get_zari():
 
 
 if __name__ == "__main__":
-	print("put some code here")
+	gbT = fits.getdata(gb_TN_fn, 1)
+	multi_beta_T = fits.getdata(multi_beta_fn, 1)
+	diff = gbT - multi_beta_T
+	plt.figure(figsize=(14, 9))
+	plt.subplot(131)
+	plt.imshow(gbT, origin='lower', vmin=12, vmax=21)
+	plt.subplot(132)
+	plt.imshow(diff, origin='lower', vmin=-3, vmax=3)
+	plt.subplot(133)
+	plt.imshow(multi_beta_T, origin='lower', vmin=12, vmax=21)
+	plt.show()
 
 
 

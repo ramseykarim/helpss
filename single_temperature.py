@@ -48,10 +48,13 @@ soln_3p_plus047_15p5 = "T4-absdiff-Per1J-3param-plus047-15p5.fits"
 nominal_2p_soln = soln_2p_plus045 # 15.7 K
 nominal_3p_soln = soln_3p_plus045
 
+pdir = "single_comp_beta_grid/"
+
 dl3_2p_soln = "T4-absdiff-Per1J-plus045-DL3.fits" # this one is 14.2 K!
-soln_2p_pow16 = "T4-absdiff-Per1J-plus045-pow-1000-0.1-1.60.fits" # 17.40!
-soln_2p_pow17 = "T4-absdiff-Per1J-plus045-pow-1000-0.1-1.70.fits" # 16.64
-soln_2p_pow18 = "T4-absdiff-Per1J-plus045-pow-1000-0.1-1.80.fits" # 15.95
+soln_2p_pow16 = pdir+"T4-absdiff-Per1J-plus045-pow-1000-0.1-1.60.fits" # 17.40!
+soln_2p_pow165 = pdir+"T4-absdiff-Per1J-plus045-pow-1000-0.1-1.65.fits" # 17.03
+soln_2p_pow17 = pdir+"T4-absdiff-Per1J-plus045-pow-1000-0.1-1.70.fits" # 16.64
+soln_2p_pow18 = pdir+"T4-absdiff-Per1J-plus045-pow-1000-0.1-1.80.fits" # 15.95
 
 def load_manticore(filename, frames=None):
 	if frames is None:
@@ -68,7 +71,7 @@ def poly(x, a, b, c):
 
 prep_arr = lambda a, b: np.array([a, b]).T.flatten()
 
-T, Xs = load_manticore(soln_2p_pow18, frames=(1, 5))
+T, Xs = load_manticore(soln_2p_pow165, frames=(1, 5))
 
 
 BINS = 128
