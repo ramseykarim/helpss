@@ -6,8 +6,8 @@ fig_filename="Figure_X_current.png"
 cmd_line_args="PACS160um Per1"
 image_dir="/home/ramsey/Documents/Research/Filaments/images/"
 # python="/jupiter/rkarim/anaconda3/bin/python"
-python="/jupiter/rkarim/anaconda3/envs/py36/bin/python"
-# python="python"
+# python="/jupiter/rkarim/anaconda3/envs/py36/bin/python"
+python="python"
 
 if [[ $1 != "fetch" ]] && [[ $1 != "push" ]] ; then
     echo "what? fetch or push";
