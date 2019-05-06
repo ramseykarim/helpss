@@ -17,11 +17,19 @@ def show_plot():
 	else:
 		plt.show()
 
-working_dir = "/n/sgraraid/filaments/data/TEST4/helpss_scratch_work/"
-soln = "T4-absdiff-Per1J-3param-plus046-full.fits"
-T = mtc.load_specific_frame(soln, 1)
-mask = mtc.get_filament_mask()
-T[~mask] = 0
+# working_dir = "/n/sgraraid/filaments/data/TEST4/helpss_scratch_work/"
+working_dir = "/home/ramsey/Documents/Research/Filaments/"
+# soln = "T4-absdiff-Per1J-3param-plus046-full.fits"
+soln = "T4-absdiff-Per1J-plus045-pow-1000-0.1-1.80.fits"
+
+T = fits.getdata(working_dir + soln, 3)
+# mask = mtc.get_filament_mask()
+# T[~mask] = 0
+# T = np.log(T)
+# T -= np.nanmin(T)
+# T += 1
+# T = np.exp(T)
+T[np.isnan(T)] = 0
 
 Tflat = T.flatten(order='C')
 Tsort_i = np.argsort(Tflat)
@@ -57,7 +65,7 @@ def sample_kernel(sigma=1.0):
 
 # plt.imshow(T, origin='lower')
 # plt.subplot(122)
-n_points = 5500
+n_points = 7000
 kernel_width = 3 # pixels
 points = []
 for i in range(n_points):
@@ -75,6 +83,7 @@ points = np.array(points)
 # plt.ylim([0, T.shape[0]])
 # plt.gca().set_aspect('equal')
 # show_plot()
-np.savetxt("{:s}filament{:04d}.dat".format(working_dir, n_points),
+working_dir = "/home/ramsey/Documents/Research/AlphaX/PyAlpha_drafting/test_data/"
+np.savetxt("{:s}filament{:04d}_sampleNH2_betah1.80.dat".format(working_dir, n_points),
 	 points)
 print("done")
