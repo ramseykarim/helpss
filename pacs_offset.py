@@ -1,7 +1,10 @@
-plotting_remotely = True
+plotting_remotely = False
 import numpy as np
 from astropy.io.fits import getdata, writeto
 from astropy.wcs import WCS
+from astropy.nddata.utils import Cutout2D
+from astropy.coordinates import SkyCoord, FK5, Galactic, Angle
+from astropy import units as u
 import matplotlib
 if plotting_remotely:
 	matplotlib.use('Agg')
@@ -51,10 +54,10 @@ gen_planck_fn = lambda b: planck_data_directory + planck_stubs[b]
 gen_herschel_fn = lambda b: region_directory + b + img_stub
 
 bandpass_beam_sizes = {
-	"PACS160um": np.sqrt(11.64 * 15.65)/60,
-	"SPIRE250um": 18.4/60,
-	"SPIRE350um": 25.2/60,
-	"SPIRE500um": 36.7/60,
+	"PACS160um": 11.8/60,
+	"SPIRE250um": 18.2/60,
+	"SPIRE350um": 24.9/60,
+	"SPIRE500um": 36.3/60,
     "F100": 9.66,
     "F143": 7.27,
     "F217": 5.01,
@@ -126,14 +129,20 @@ def plot_cumulative_planck_ratio_mask(ax):
 	masks = []
 	settings = [4, 5]
 	for s in settings:
+		if s == 5:
+			continue
 		for planck_band_stub in planck_stubs:
 			masks.append(get_planck_ratio_mask(planck_band_stub, setting=s))
 	int_masks = [m.astype(int) for m  in masks]
-	cumulative_mask = sum(int_masks)
+	cumulative_mask = sum(int_masks).astype(float)
+	nanmask = np.isnan(getdata(gen_herschel_fn(pacs_band_stub))) | np.isnan(getdata(gen_herschel_fn("SPIRE500um")))
 	plt.sca(ax)
+	cumulative_mask[nanmask] = np.nan
 	plt.imshow(cumulative_mask, origin='lower')
-	plt.colorbar()
-	plt.title("Accumulated Planck Observation vs Dust Model Masks")
+	c = plt.colorbar(pad=0, ticks=[0, 1, 2, 3])
+	c.set_label("Number of masks under which pixel is true",
+		rotation=-90., labelpad=18)
+	plt.title("Accumulated Planck Observation vs Prediction Masks")
 
 def accumulate_planck_ratio_masks():
 	# stack the masks and do a bitwise AND across them
@@ -178,38 +187,58 @@ def plot_pacs_offset(ax):
 
 def plot_multiple_offset_attempts(ax):
 	settings = {4: "within 10%", 5: "within 20%"}
-	colors = iter(['red', 'blue', 'orange', 'magenta', 'brown', 'green'])
+	colors = iter(['blue', 'green', 'orange', 'brown', 'red', 'magenta'])
 	diff = get_pacs_difference_map()
 	plt.sca(ax)
 	for setting in settings:
+		if setting == 5:
+			continue
 		for planck_band_stub in planck_stubs:
 			mask = get_planck_ratio_mask(planck_band_stub, setting=setting)
 			histxy, stats = gen_hist_and_stats(diff, mask, x_lim=diffLIM, setting=-1)
 			fitxy, unused = gen_hist_and_stats(diff, mask, x_lim=diffLIM, setting=-3)
-			label = "{} GHz band ratio {}: offset = {:.1f}".format(planck_band_stub[1:], settings[setting], stats[0])
+			label = "{} GHz band; fitted mean = {:.1f}".format(planck_band_stub[1:], stats[0])
 			color = next(colors)
 			plt.plot(*histxy, '-', color=color, label=label)
 			plt.plot(*fitxy, '--', color=color)
-	plt.legend()
+	plt.legend(loc='upper right')
 	plt.title("PACS zero-point offset distribution")
 	plt.ylabel("Histogram count")
 	plt.xlabel("Additive offset to PACS 160 micron (MJy/sr)")
 
 def plot_before_and_after(ax):
-	h_data = load_herschel_band(pacs_band_stub, header=False)
+	h_data, hdr = load_herschel_band(pacs_band_stub, header=True)
 	planck_flux = generate_planck_flux(pacs_band_stub)
 	corrected_h_data = h_data + get_pacs_offset()
+
+	h_beam, p_beam = bandpass_beam_sizes[pacs_band_stub], GNILC_resolution  # arcminutes
+	conv_beam = prepare_convolution(WCS(hdr), h_beam, p_beam, h_data.shape)
+	h_data = convolve_properly(h_data, conv_beam)
+	corrected_h_data = convolve_properly(corrected_h_data, conv_beam)
+
+
+
 	images = {
 		"Uncorrected PACS 160 micron flux": (h_data, 'r-'),
 		"Planck-predicted PACS 160 micron flux": (planck_flux, 'k--'),
 		"Corrected PACS 160 micron flux": (corrected_h_data, 'b-'),
 	}
+	w = WCS(hdr)
+	# cutout_coord = SkyCoord("3:28:43.922 +32:11:22.51", frame=FK5, unit=(u.hourangle, u.deg))
+	# cutout_size = (20.8*u.arcminute, 32.86*u.arcminute) # Dec, RA (reversed)
+
+	cutout_coord = SkyCoord("3:29:10.658 +32:18:42.33", frame=FK5, unit=(u.hourangle, u.deg))
+	cutout_size = (31.53*u.arcminute, 21.78*u.arcminute) # Dec, RA (reversed)
+
+	# mask = accumulate_planck_ratio_masks()
+
 	plt.sca(ax)
 	for label in images:
 		img, marker = images[label]
+		img = Cutout2D(img, cutout_coord, cutout_size, wcs=w).data
 		histxy, stats = gen_hist_and_stats(img, ~np.isnan(img), x_lim=fluxLIM)
 		plt.plot(*histxy, marker, label=label)
-	plt.title("PACS 160 micron flux distribution")
+	plt.title("PACS 160 micron flux distribution in representative region")
 	plt.xlabel("Flux (MJy/sr)")
 	plt.ylabel("Histogram count")
 	plt.legend()
@@ -219,7 +248,7 @@ def capstone_figure_pacs_offset():
 	plt.figure(figsize=(17, 7))
 	ax = plt.subplot(121)
 	plot_multiple_offset_attempts(ax)
-	ax = plt.subplot(122)
+	ax = plt.subplot(122, projection=WCS(getdata(gen_herschel_fn(pacs_band_stub), header=True)[1]))
 	plot_cumulative_planck_ratio_mask(ax)
 	plt.tight_layout()
 	show_plot()
@@ -381,4 +410,5 @@ def offset_emma_data():
 
 
 if __name__ == "__main__":
-	offset_emma_data()
+	before_and_after_figure()
+

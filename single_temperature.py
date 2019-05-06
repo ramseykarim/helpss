@@ -51,10 +51,12 @@ nominal_3p_soln = soln_3p_plus045
 pdir = "single_comp_beta_grid/"
 
 dl3_2p_soln = "T4-absdiff-Per1J-plus045-DL3.fits" # this one is 14.2 K!
-soln_2p_pow16 = pdir+"T4-absdiff-Per1J-plus045-pow-1000-0.1-1.60.fits" # 17.40!
+soln_2p_pow15 = pdir+"T4-absdiff-Per1J-plus045-pow-1000-0.1-1.50.fits" # 18.26
+soln_2p_pow16 = pdir+"T4-absdiff-Per1J-plus045-pow-1000-0.1-1.60.fits" # 17.40
 soln_2p_pow165 = pdir+"T4-absdiff-Per1J-plus045-pow-1000-0.1-1.65.fits" # 17.03
 soln_2p_pow17 = pdir+"T4-absdiff-Per1J-plus045-pow-1000-0.1-1.70.fits" # 16.64
 soln_2p_pow18 = pdir+"T4-absdiff-Per1J-plus045-pow-1000-0.1-1.80.fits" # 15.95
+soln_2p_pow18_err5pct = "T4-absdiff-Per1J-plus045-plus05.0pct-pow-1000-0.1-1.80.fits"
 
 def load_manticore(filename, frames=None):
 	if frames is None:
@@ -71,7 +73,7 @@ def poly(x, a, b, c):
 
 prep_arr = lambda a, b: np.array([a, b]).T.flatten()
 
-T, Xs = load_manticore(soln_2p_pow165, frames=(1, 5))
+T, Xs = load_manticore(soln_2p_pow18, frames=(1, 5))
 
 
 BINS = 128
@@ -133,19 +135,19 @@ def plot_apply_mask(Xs_limit):
 		consensus = np.mean([com, mode, parab_peak])[0]
 	except IndexError:
 		consensus = np.mean([com, mode, parab_peak])		
-	label_txt = r'$\chi^2$ < {:.2f} mask: T={:.2f}K'.format(
+	label_txt = r'$\chi^2$ < {:.2f} mask; fitted T = {:.2f}K'.format(
 		Xs_limit, consensus)
 	plt.plot(*histxy, '-', label=label_txt)
-	plt.plot([com, com], peak_val_default_limits, '--', color='k')
-	plt.plot([mode, mode], peak_val_default_limits, '--', color='k')
-	plt.plot([parab_peak, parab_peak], peak_val_default_limits, '--', color='k')
-	plt.plot(*parab_values, '--', color='b')
+	plt.plot([com, com], peak_val_default_limits, '--', color='r')
+	plt.plot([mode, mode], peak_val_default_limits, '--', color='r')
+	plt.plot([parab_peak, parab_peak], peak_val_default_limits, '--', color='r')
+	plt.plot(*parab_values, '--', color='k')
 
 def final_temp_determination_plot():
 	plt.figure(figsize=(11, 8.5))
 	for Xs_limit in [5., 4., 3., 2., 1., 0.5, 0.25]:
 		plot_apply_mask(Xs_limit)
-	plt.legend()
+	plt.legend(loc='upper left')
 	plt.xlabel("Fitted single-component temperature (K)")
 	plt.ylabel("Histogram count")
 	plt.title("Distribution of fitted temperatures under several single-component masks")
