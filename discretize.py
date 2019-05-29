@@ -64,17 +64,26 @@ def sample_kernel(size=1, sigma=None):
 
 
 if __name__ == "__main__":
-    print("testing discretize")
-    working_dir = "/home/ramsey/Documents/Research/Filaments/"
-    soln = "T4-absdiff-Per1J-plus045-pow-1000-0.1-1.80.fits"
-    from astropy.io import fits
-    img = fits.getdata(working_dir + soln, 3)
-    img[np.isnan(img)] = 0
-    print("N_POINTS: ", end="")
-    print(optimal_N(np.sum(np.sqrt(img)), np.sqrt(1e20), 1., 3.))
-    points = discretize(img, scale_f=np.sqrt, lims=(1e20, None), SNR0=3.,
-        beam_size=3)
-    print(points.shape)
     import matplotlib.pyplot as plt
-    plt.plot(points[:, 1], points[:, 0], ',', alpha=0.01)
-    plt.show()
+    import pickle
+    with open("MantiPython/grid_file.pkl", 'rb') as pfl:
+        data = pickle.load(pfl)
+    data[np.isnan(data)] = 0
+    if np.min(data) < 0:
+        data += -1*np.min(data)
+    print(data.min(), data.max())
+
+
+    # print("testing discretize")
+    # working_dir = "/home/ramsey/Documents/Research/Filaments/"
+    # soln = "T4-absdiff-Per1J-plus045-pow-1000-0.1-1.80.fits"
+    # from astropy.io import fits
+    # img = fits.getdata(working_dir + soln, 3)
+    # img[np.isnan(img)] = 0
+    # print("N_POINTS: ", end="")
+    # print(optimal_N(np.sum(np.sqrt(img)), np.sqrt(1e20), 1., 3.))
+    # points = discretize(img, scale_f=np.sqrt, lims=(1e20, None), SNR0=3.,
+    #     beam_size=3)
+    # print(points.shape)
+    # plt.plot(points[:, 1], points[:, 0], ',', alpha=0.01)
+    # plt.show()

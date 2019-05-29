@@ -7,6 +7,7 @@ from Greybody import Greybody
 from Instrument import Instrument, get_Herschel
 import mantipyfit as mpfit
 import corner
+import pickle
 
 """
 This is where I will run science code on my laptop!
@@ -16,6 +17,8 @@ def main():
     mtest_grid_to_single_pixel()
 
 
+def desktop_main():
+    mtest_3dgrid_to_single_pixel()
 
 """
 Scripts below here
@@ -287,6 +290,42 @@ def mtest_grid_to_single_pixel():
     gofgrid = np.log10(gofgrid.reshape(Tcgrid.shape))
     plt.imshow(gofgrid, origin='lower', extent=ex, aspect=aspect)
     plt.show()
+
+def mtest_3dgrid_to_single_pixel():
+    pixel_index = 6
+    good, name, coords, color = mpu.PIXELS_OF_INTEREST[pixel_index]
+    info_dict = mpu.get_manticore_info(manticore_soln_3p, *coords)
+    # nu_range = np.exp(np.linspace(np.log(cst.c/(1500*1e-6)), np.log(cst.c/(50*1e-6)), 100))
+    # wl_range = 1e6*cst.c/nu_range
+    herschel = get_Herschel()
+    dof = 1.
+    dusts = [Dust(beta=1.80), Dust(beta=2.10)]
+    obs, err = mpu.get_obs(info_dict), mpu.get_err(info_dict)
+    nominal = [info_dict[x] for x in ('Tc', 'Nh', 'Nc')]
+    Th = info_dict['Th']
+    nominal[1] = np.log10(nominal[1])
+    nominal[2] = np.log10(nominal[2])
+    print("Tc:{:5.2f}, Nh:{:5.2f}, Nc:{:5.2f}".format(*nominal))
+    Tclim, Nclim = (10, 14), (20., 23.)
+    Nhlim = (20., 22.)
+    # ex = (*Tclim, *Nclim)
+    # aspect = (Tclim[1] - Tclim[0]) / (Nclim[1] - Nclim[0])
+    Tcrange = np.arange(*Tclim, 0.03)
+    Nhrange = np.arange(*Nhlim, 0.03)
+    Ncrange = np.arange(*Nclim, 0.03)
+    Tcgrid, Nhgrid, Ncgrid = np.meshgrid(Tcrange, Nhrange, Ncrange, indexing='ij')
+    print(Tcgrid.shape, Tcgrid.size)
+    gofgrid = np.empty(Tcgrid.size)
+    for i, pvec in enumerate(zip(Tcgrid.ravel(), Nhgrid.ravel(), Ncgrid.ravel())):
+        gof = mpfit.goodness_of_fit_f_3p(pvec, dusts, obs, err, herschel, Th, dof)
+        gofgrid[i] = gof
+    gofgrid = np.log10(gofgrid.reshape(Tcgrid.shape))
+    # plt.imshow(gofgrid, origin='lower', extent=ex, aspect=aspect)
+    # plt.show()
+    with open("grid_file.pkl", 'wb') as pfl:
+        pickle.dump(gofgrid, pfl)
+    print("Written and finished")
+    return
 
 if __name__ == "__main__":
     main()
