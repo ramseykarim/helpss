@@ -9,7 +9,7 @@ import mantipyfit as mpfit
 import corner
 
 """
-This is where I will run science code
+This is where I will run science code on my laptop!
 """
 
 def main():
@@ -20,10 +20,7 @@ def main():
 """
 Scripts below here
 """
-manticore_soln_2p = "../T4-absdiff-Per1J-plus045-plus05.0pct-pow-1000-0.1-1.80.fits"
-manticore_soln_3p = "../T4-absdiff-Per1J-3param-plus045-plus05.0pct-cpow-1000-0.1-2.10hpow-1000-0.1-1.80-bcreinit-Th15.95-Nh5E19,2E22.fits"
-mask_fn = "../filament_mask_syp.fits"
-
+from computer_config import manticore_soln_2p, manticore_soln_3p, mask_fn
 
 def mtest_2pixel_scatter():
     pij1 = 478-1, 376-1 # looks ok

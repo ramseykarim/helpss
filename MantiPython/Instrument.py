@@ -15,9 +15,7 @@ Needs access to a filter profile.
 The GREYBODY passed to DETECT must implement a RADIATE function.
 """
 
-
-bandpass_directory = "../Herschel_bands/"
-p_RIMO = "HFI_stuff/HFI_RIMO_R3.00.fits"
+from computer_config import bandpass_directory, p_RIMO
 spire_stub = lambda x: "Herschel_SPIRE.P"+x+"W_ext.dat"
 kevin_bp_fn = lambda b: "{}_fromManticore.dat".format(b)
 bandpass_files_kevin = {
