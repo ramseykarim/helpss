@@ -45,13 +45,18 @@ print("best n", best_n_points)
 
 def get_position(i):
 	# Assume the center of the pixel
+	#### NOTE: I think this worked in this code but "row/col" MAY NOT
+	#### be correct here. It also doesn't generalize well.
+	#### I have moved to using np.unravel_index for this task
 	row = i // img.shape[1]
 	col = i % img.shape[1]
-	return np.concatenate([col+0.5, row+0.5], axis=1)
+	return np.concatenate([col, row], axis=1)
 
 def sample_kernel(size=1, sigma=1.0):
-	# Return two samples from a 2D gaussian kernel
-	return np.random.normal(scale=sigma, size=(size, 2))
+	# Return two samples from a 2D gaussian kernel (within beam)
+	# return np.random.normal(scale=sigma, size=(size, 2))
+	# Return two samples between 0-1 (within pixel)
+	return np.random.uniform(size=(size, 2))
 
 n_points = 10000
 n_points = best_n_points
