@@ -70,7 +70,8 @@ if __name__ == "__main__":
         data = pickle.load(pfl)
     data[np.isnan(data)] = 0
     if np.min(data) < 0:
-        data += -1*np.min(data)
+        data += -1*data.min()
+    data += (data.max() - data.min())
     print(optimal_N(np.sum(data), np.min(data), 1., 1.))
 
     # print("testing discretize")
