@@ -315,7 +315,8 @@ def mtest_3dgrid_to_single_pixel():
     Ncrange = np.arange(*Nclim, 0.03)
     Tcgrid, Nhgrid, Ncgrid = np.meshgrid(Tcrange, Nhrange, Ncrange, indexing='ij')
     print(Tcgrid.shape, Tcgrid.size)
-    if input("Ready? Type '1'") != 1:
+    if int(input("Ready? Type '1'")) != 1:
+        print("quitting...")
         return
     gofgrid = np.empty(Tcgrid.size)
     for i, pvec in enumerate(zip(Tcgrid.ravel(), Nhgrid.ravel(), Ncgrid.ravel())):
