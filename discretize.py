@@ -41,7 +41,7 @@ def discretize(data, n_points=None, scale_f=None,
     pixel_indices = np.searchsorted(cdf, rand_cdf_values)
     s = None if within_pixel else beam_size
     pixel_centers = get_position(pixel_indices, data.shape)
-    pixel_scatters = sample_kernel(size=n_points, sigma=s)
+    pixel_scatters = sample_kernel(size=n_points, sigma=s, dim=len(data.shape))
     return pixel_centers + pixel_scatters
 
 def optimal_N(total_weight, smallest_weight, SNR0, beam_size):
@@ -54,13 +54,13 @@ def get_position(i, shape):
     # i must be a 1-D array
     return np.concatenate(np.unravel_index(i, shape), axis=1).astype(float)
 
-def sample_kernel(size=1, sigma=None):
+def sample_kernel(size=1, sigma=None, dim=2):
     if sigma is None:
         # Within pixel
-        return np.random.uniform(size=(size, 2))
+        return np.random.uniform(size=(size, dim))
     else:
         # Within beam
-        return np.random.normal(scale=sigma, size=(size, 2))
+        return np.random.normal(scale=sigma, size=(size, dim))
 
 
 if __name__ == "__main__":
