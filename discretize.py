@@ -66,19 +66,25 @@ def sample_kernel(size=1, sigma=None, dim=2):
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import pickle
+    import sys
     with open("MantiPython/grid_file.pkl", 'rb') as pfl:
         data = pickle.load(pfl)
     data[np.isnan(data)] = 0
     if np.min(data) < 0:
         data += -1*data.min()
-    data += (data.max() - data.min())
-    print(optimal_N(np.sum(data), np.min(data), .01, 1.))
-    points = discretize(data, SNR0=.01, beam_size=1.)
+    data += 0.01*(data.max() - data.min())
+    snr = .2
+    print(data.min(), data.max())
+    avg = np.mean((data.min(), data.max()))
+    print("avg", avg)
+    print(optimal_N(np.sum(data), avg, snr, 1.))
+    points = discretize(data, scale_f=lambda x: x*x, SNR0=snr,
+                        beam_size=1., lims=(avg, None))
     print(points.shape)
     from mpl_toolkits.mplot3d import Axes3D
     fig = plt.figure()
     ax = plt.subplot(111, projection='3d')
-    ax.plot(*zip(*points), marker='.')
+    ax.plot(*zip(*points), marker='.', linestyle='None', alpha=0.03)
     plt.show()
 
     # print("testing discretize")
