@@ -68,13 +68,10 @@ if __name__ == "__main__":
     import pickle
     with open("MantiPython/grid_file.pkl", 'rb') as pfl:
         data = pickle.load(pfl)
-    print(data.min(), data.max())
     data[np.isnan(data)] = 0
-    print(data.min(), data.max())
     if np.min(data) < 0:
         data += -1*np.min(data)
-    print(data.min(), data.max())
-
+    print(optimal_N(np.sum(data), np.min(data), 1., 1.))
 
     # print("testing discretize")
     # working_dir = "/home/ramsey/Documents/Research/Filaments/"
