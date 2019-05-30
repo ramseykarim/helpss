@@ -73,11 +73,12 @@ if __name__ == "__main__":
         data += -1*data.min()
     data += (data.max() - data.min())
     print(optimal_N(np.sum(data), np.min(data), .01, 1.))
-
+    points = discretize(data, SNR0=.01, beam_size=1.)
+    print(points.shape)
     from mpl_toolkits.mplot3d import Axes3D
     fig = plt.figure()
     ax = plt.subplot(111, projection='3d')
-    ax.plot(*zip(*data), marker='.')
+    ax.plot(*zip(*points), marker='.')
     plt.show()
 
     # print("testing discretize")
