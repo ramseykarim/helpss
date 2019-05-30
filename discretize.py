@@ -72,7 +72,13 @@ if __name__ == "__main__":
     if np.min(data) < 0:
         data += -1*data.min()
     data += (data.max() - data.min())
-    print(optimal_N(np.sum(data), np.min(data), 1., 1.))
+    print(optimal_N(np.sum(data), np.min(data), .01, 1.))
+
+    from mpl_toolkits.mplot3d import Axes3D
+    fig = plt.figure()
+    ax = plt.subplot(111, projection='3d')
+    ax.plot(*zip(*data), marker='.')
+    plt.show()
 
     # print("testing discretize")
     # working_dir = "/home/ramsey/Documents/Research/Filaments/"
