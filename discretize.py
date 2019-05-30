@@ -82,11 +82,10 @@ if __name__ == "__main__":
         beam_size=1., lims=(avg, None))
     print(points.shape)
     from mpl_toolkits.mplot3d import Axes3D
-    fig = plt.figure()
-    ax = plt.subplot(111, projection='3d')
-    ax.plot(*zip(*points), marker='.', linestyle='None', alpha=0.03)
-    plt.show()
-    sys.exit()
+    #fig = plt.figure()
+    #ax = plt.subplot(111, projection='3d')
+    #ax.plot(*zip(*points), marker='.', linestyle='None', alpha=0.03)
+    #plt.show()
     with open("MantiPython/points_file_small.pkl", 'wb') as pfl:
         pickle.dump(points, pfl)
     print("Written and finished")
