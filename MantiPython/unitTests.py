@@ -4,7 +4,6 @@ import scipy.constants as cst
 from astropy.io.fits import getdata
 from astropy.io.fits import open as fitsopen
 import inspect
-import multiprocessing as mproc
 
 def get_f_name():
     return str(inspect.stack()[1][3]).upper()
@@ -215,7 +214,7 @@ manticore consistency tests
 from mpy_utils import get_manticore_info
 
 mtest_stub = "<MANTICORE>"
-manticore_soln_2p = "../T4-absdiff-Per1J-plus045-pow-1000-0.1-1.80.fits"
+manticore_soln_2p = "../../T4-absdiff-Per1J-plus045-pow-1000-0.1-1.80.fits"
 
 def test_manticore_retrieval_2p():
     # Test pixel value retrieval from FITS file
@@ -294,7 +293,7 @@ def test_manticore_2p_many_pixels():
     plt.show()
 
 
-manticore_soln_3p = "../T4-absdiff-Per1J-3param-plus045-plus05.0pct-cpow-1000-0.1-2.10hpow-1000-0.1-1.80-bcreinit-Th15.95-Nh5E19,2E22.fits"
+manticore_soln_3p = "../../T4-absdiff-Per1J-3param-plus045-plus05.0pct-cpow-1000-0.1-2.10hpow-1000-0.1-1.80-bcreinit-Th15.95-Nh5E19,2E22.fits"
 
 def test_manticore_3p_single_pixel():
     pi, pj = 582, 270
@@ -338,7 +337,7 @@ def test_manticore_2p_mask_pixels():
 
 from mpy_utils import get_obs, get_err
 from Instrument import get_Herschel
-from mantipyfit import fit_source_2p,fit_source_3p, ITER
+from mantipyfit import fit_source_2p, fit_source_3p, ITER
 
 def test_mp_fit_2p():
     info_dict = get_manticore_info(manticore_soln_2p, 582-1, 270-1)
@@ -374,18 +373,59 @@ tests_manticore = [test_manticore_retrieval_2p,
 
 
 """
-multiprocessing tests
+imported package tests
 """
-mptest_stub = "<MANTICORE>"
+mptest_stub = "<IMPORTANT PACKAGES>"
+import multiprocessing as mproc
+import emcee
+from mantipyfit import goodness_of_fit_f_2p, goodness_of_fit_f_3p
+import corner
 
 def test_multiprocessing():
     print(mproc.cpu_count())
+
+def test_corner():
+    samples = np.random.normal(size=(300, 2))
+    corner.corner(samples, labels=['x', 'y'], truths=[0, 0])
+    plt.show()
+
+def test_emcee():
+    info_dict = get_manticore_info(manticore_soln_2p, 582-1, 270-1)
+    nominal = [info_dict[x] for x in ("Tc", "Nc") if x in info_dict]
+    for i in (1,):
+        nominal[i] = np.log10(nominal[i])
+    dust = Dust(beta=1.80)
+    obs, err = get_obs(info_dict), get_err(info_dict)
+    herschel = get_Herschel()
+    dof = 2.
+    arguments = (dust, obs, err, herschel, dof)
+    def lnprob(x, *args):
+        return -1.*goodness_of_fit_f_2p(x, *args)
+    nwalkers, ndim = 10, 2
+    p0 = np.concatenate([
+        np.random.normal(scale=3, size=(nwalkers, 1)) + 10,
+        np.random.normal(scale=1.5, size=(nwalkers, 1)) + 21
+    ], axis=1)
+    print(p0)
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=arguments)
+    sampler.run_mcmc(p0, 150)
+    print(sampler.chain.shape)
+    samples = sampler.chain[:, 70:, :].reshape((-1, ndim))
+    print(samples.shape)
+    # plt.figure()
+    # for i in range(2):
+    #     plt.subplot(211+i)
+    #     for j in range(nwalkers):
+    #         plt.plot(sampler.chain[j, :, i])
+    fig = corner.corner(samples, labels=['Tc', 'Nc'],
+        truths=nominal,)# range=[(0, 15), (18, 23.5)])
+    plt.show()
 
 
 all_tests = tests_dust + tests_greybody + tests_instrument + tests_manticore
 
 if __name__ == "__main__":
-    test_manticore_retrieval_2p()
+    test_emcee()
     # for f in all_tests:
     #     try:
     #         f()

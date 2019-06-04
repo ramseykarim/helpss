@@ -7,6 +7,7 @@ from Greybody import Greybody
 from Instrument import Instrument, get_Herschel
 import mantipyfit as mpfit
 import corner
+import emcee
 import pickle
 
 """
@@ -14,7 +15,8 @@ This is where I will run science code on my laptop!
 """
 
 def main():
-    mtest_grid_to_single_pixel()
+    # mtest_corner_3p_boostrap_single_pixel()
+    mtest_emcee_3p()
 
 
 def desktop_main():
@@ -182,7 +184,7 @@ def mtest_selected_pixels_error():
     plt.figure(figsize=(8, 4.5))
     plt.subplot(111)
     for i, name in enumerate(name_list):
-        if i != 6:
+        if i != 0:
             continue
         # plt.subplot(331 + i)
         label = name + " (" + ("good" if good_list[i] else "bad") + ")"
@@ -207,7 +209,7 @@ def mtest_selected_pixels_error():
         plt.plot(wl_range, cloudf.radiate(nu_range), '--', color=color_list[i],
             label=str(cloudf))
         p_sets, p_errs = mpfit.bootstrap_errors(obs, err, herschel,
-            dusts, niter=5, fit_f=mpfit.fit_source_3p,
+            dusts, niter=50, fit_f=mpfit.fit_source_3p,
             dof=1, Th=info_dict['Th'][i])
         manticore_errors = tuple(info_dict[x][i] for x in err_names)
         for x in zip(err_names, manticore_errors, p_errs):
@@ -229,25 +231,103 @@ def mtest_selected_pixels_error():
         print()
     plt.show()
 
-def mtest_corner_boostrap_single_pixel():
-    pixel_index = 6
+
+def mtest_corner_2p_boostrap_single_pixel():
+    pixel_index = 0
+    niter = 600
+    good, name, coords, color = mpu.PIXELS_OF_INTEREST[pixel_index]
+    print(name)
+    info_dict = mpu.get_manticore_info(manticore_soln_2p, *coords)
+
+    herschel = get_Herschel()
+    dusts = Dust(beta=1.80)
+    nu_range = np.exp(np.linspace(np.log(cst.c/(1500*1e-6)), np.log(cst.c/(50*1e-6)), 100))
+    wl_range = 1e6*cst.c/nu_range
+
+    obs, err = mpu.get_obs(info_dict), mpu.get_err(info_dict)
+    #### HALF PACS ERROR
+    # err[0] = err[0]/2
+    nominal = [info_dict[x] for x in ("Tc", "Nc") if x in info_dict]
+
+    Tcf, Ncf = mpfit.fit_source_2p(obs, err, herschel, dusts)
+    print("nominal>> Tc:{:5.2f}, Nc:{:.2E}".format(*nominal))
+    print("fitted >> Tc:{:5.2f}, Nc:{:.2E}".format(Tcf, 10**Ncf))
+    p_sets, p_errs = mpfit.bootstrap_errors(obs, err, herschel,
+        dusts, niter=niter, fit_f=mpfit.fit_source_2p, dof=2)
+
+    # CREATE SED PLOT
+    plt.figure(figsize=(10, 7))
+    for s in p_sets:
+        cloudf = Greybody(s[0], s[1], dusts)
+        plt.plot(wl_range, cloudf.radiate(nu_range), '-', alpha=0.1,
+            color='grey')
+    cloud = Greybody(*nominal, dusts)
+    plt.plot(wl_range, cloud.radiate(nu_range), '-', color=color,
+        label=str(cloud))
+    cloudf = Greybody(Tcf, 10**Ncf, dusts)
+    plt.plot(wl_range, cloudf.radiate(nu_range), '--', color=color,
+        label=str(cloudf))
+    plt.errorbar(mpu.H_WL, obs, yerr=err, fmt='.', capsize=6,
+        color=color, label=name)
+    plt.xscale('log')
+    plt.legend()
+    plt.show()
+    return
+
+    params = list(zip(*p_sets))
+    Tcs, Ncs = map(np.array, params)
+    Ncs = np.log10(Ncs)
+    nominal[1] = np.log10(nominal[1])
+    print("log:")
+    print("nominal>> Tc:{:5.2f}, Nc:{:5.2f}".format(*nominal))
+    print("fitted >> Tc:{:5.2f}, Nc:{:5.2f}".format(Tcf, Ncf))
+    labels = ['Tc', 'log(Nh)', 'log(Nc)']
+    params = np.stack([Tcs, Ncs], axis=1)
+    fig = corner.corner(params, labels=labels, truths=nominal,
+        range=[(13, 14.8), (21.8, 22.0)])
+    fig.set_size_inches((10, 10))
+    plt.title("BOOTSTRAP (n={:d})".format(niter))
+    plt.show()
+
+def mtest_corner_3p_boostrap_single_pixel():
+    pixel_index = 0
+    niter = 500
     good, name, coords, color = mpu.PIXELS_OF_INTEREST[pixel_index]
     info_dict = mpu.get_manticore_info(manticore_soln_3p, *coords)
 
     herschel = get_Herschel()
     dusts = [Dust(beta=1.80), Dust(beta=2.10)]
+    nu_range = np.exp(np.linspace(np.log(cst.c/(1500*1e-6)), np.log(cst.c/(50*1e-6)), 100))
+    wl_range = 1e6*cst.c/nu_range
 
     obs, err = mpu.get_obs(info_dict), mpu.get_err(info_dict)
+    #### HALF PACS ERROR
     err[0] = err[0]/2
+    Th = info_dict['Th']
     nominal = [info_dict[x] for x in ("Tc", "Nh", "Nc") if x in info_dict]
-    Tcf, Nhf, Ncf = mpfit.fit_source_3p(obs, err, herschel, dusts, Th=info_dict['Th'])
+    Tcf, Nhf, Ncf = mpfit.fit_source_3p(obs, err, herschel, dusts, Th=Th)
     print("nominal>> Tc:{:5.2f}, Nh:{:.2E}, Nc:{:.2E}".format(*nominal))
     print("fitted >> Tc:{:5.2f}, Nh:{:.2E}, Nc:{:.2E}".format(Tcf, 10**Nhf, 10**Ncf))
     p_sets, p_errs = mpfit.bootstrap_errors(obs, err, herschel,
-        dusts, niter=10, fit_f=mpfit.fit_source_3p, dof=1)
+        dusts, niter=niter, fit_f=mpfit.fit_source_3p, dof=1)
+
+    plt.figure(figsize=(10, 7))
     for s in p_sets:
-        print(">>> Tc:{:5.2f}, Nh:{:.2E}, Nc:{:.2E}".format(*s))
-    return
+        cloudf = Greybody([Th, s[0]], s[1:], dusts)
+        plt.plot(wl_range, cloudf.radiate(nu_range), '-', alpha=0.1,
+            color='grey')
+    cloud = Greybody([Th, nominal[0]], nominal[1:], dusts)
+    plt.plot(wl_range, cloud.radiate(nu_range), '-', color=color,
+        label=str(cloud))
+    cloudf = Greybody([Th, Tcf], [10**Nhf, 10**Ncf], dusts)
+    plt.plot(wl_range, cloudf.radiate(nu_range), '--', color=color,
+        label=str(cloudf))
+    plt.errorbar(mpu.H_WL, obs, yerr=err, fmt='.', capsize=6,
+        color=color, label=name)
+    plt.xscale('log')
+    plt.legend()
+    plt.show()
+
     params = list(zip(*p_sets))
     Tcs, Nhs, Ncs = map(np.array, params)
     Nhs, Ncs = np.log10(Nhs), np.log10(Ncs)
@@ -258,8 +338,10 @@ def mtest_corner_boostrap_single_pixel():
     print("fitted >> Tc:{:5.2f}, Nh:{:5.2f}, Nc:{:5.2f}".format(Tcf, Nhf, Ncf))
     labels = ['Tc', 'log(Nh)', 'log(Nc)']
     params = np.stack([Tcs, Nhs, Ncs], axis=1)
-    # fig = corner.corner(params, labels=labels, truths=nominal,)
-#        range=[(0, 15), (18, 22), (18, 23.5)])
+    fig = corner.corner(params, labels=labels, truths=nominal,
+        range=[(3, 16), (20, 21.6), (21.5, 23.5)])
+    fig.set_size_inches((10, 10))
+    plt.title("BOOTSTRAP (n={:d})".format(niter))
     plt.show()
     return
 
@@ -328,6 +410,152 @@ def mtest_3dgrid_to_single_pixel():
     with open("grid_file.pkl", 'wb') as pfl:
         pickle.dump(gofgrid, pfl)
     print("Written and finished")
+    return
+
+
+def mtest_emcee_2p():
+    pixel_index = 0
+    niter, burn = 200, 70
+    good, name, coords, color = mpu.PIXELS_OF_INTEREST[pixel_index]
+    info_dict = mpu.get_manticore_info(manticore_soln_2p, *coords)
+    nominal = [info_dict[x] for x in ("Tc", "Nc") if x in info_dict]
+    for i in (1,):
+        nominal[i] = np.log10(nominal[i])
+
+    dust = Dust(beta=1.80)
+    nu_range = np.exp(np.linspace(np.log(cst.c/(1500*1e-6)), np.log(cst.c/(50*1e-6)), 100))
+    wl_range = 1e6*cst.c/nu_range
+    obs, err = mpu.get_obs(info_dict), mpu.get_err(info_dict)
+    # err[0] = err[0]/2
+    herschel = get_Herschel()
+    dof = 2.
+
+    arguments = (dust, obs, err, herschel, dof)
+    def lnposterior(x):
+        T, N = x
+        if T<0 or T>30 or N<17 or N>26:
+            return -np.inf
+        else:
+            return -1.*mpfit.goodness_of_fit_f_2p(x, *arguments)
+    nwalkers, ndim = 10, 2
+    p0 = np.concatenate([
+        np.random.normal(scale=3, size=(nwalkers, 1)) + 10,
+        np.random.normal(scale=1.5, size=(nwalkers, 1)) + 21
+    ], axis=1)
+    badTmask = ((p0[:, 0]<0)|(p0[:, 0]>30))
+    p0[badTmask, 0] = np.random.normal(scale=.5, size=p0[badTmask, 0].shape) + 10
+    badNmask = ((p0[:, 1]<17)|(p0[:, 1]>26))
+    p0[badNmask, 1] = np.random.normal(scale=.3, size=p0[badNmask, 1].shape) + 21
+    print(nominal)
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnposterior)
+    sampler.run_mcmc(p0, niter+burn)
+    samples = sampler.chain[:, burn:, :].reshape((-1, ndim))
+
+    plt.figure(figsize=(10, 7))
+    for s in sampler.chain[:, -20:, :].reshape((-1, ndim)):
+        cloudf = Greybody(s[0], 10**s[1], dust)
+        plt.plot(wl_range, cloudf.radiate(nu_range), '-', alpha=0.1,
+            color='grey')
+    cloud = Greybody(nominal[0], 10**nominal[1], dust)
+    plt.plot(wl_range, cloud.radiate(nu_range), '-', color=color,
+        label=str(cloud))
+    plt.errorbar(mpu.H_WL, obs, yerr=err, fmt='.', capsize=6,
+        color=color, label=name)
+    plt.xscale('log')
+    plt.legend()
+    plt.show()
+
+    ### CHAIN PLOT
+    # plt.figure()
+    # for i in range(2):
+    #     plt.subplot(211+i)
+    #     for j in range(nwalkers):
+    #         plt.plot(sampler.chain[j, :, i])
+    #     plt.plot(np.arange(samples.shape[0])*sampler.chain.shape[1]/samples.shape[0],
+    #         samples[:, i], '--', color='k', linewidth=3)
+    fig = corner.corner(samples, labels=['Tc', 'Nc'], truths=nominal,
+        range=[(13, 14.8), (21.8, 22.0)])
+    fig.set_size_inches((10, 10))
+    plt.title("emcee (n={:d})".format(niter*nwalkers))
+    plt.show()
+    return
+
+
+def mtest_emcee_3p():
+    pixel_index = 6
+    niter, burn = 500, 250
+    good, name, coords, color = mpu.PIXELS_OF_INTEREST[pixel_index]
+    info_dict = mpu.get_manticore_info(manticore_soln_3p, *coords)
+    nominal = [info_dict[x] for x in ("Tc", "Nh", "Nc") if x in info_dict]
+    for i in (1, 2):
+        nominal[i] = np.log10(nominal[i])
+
+    dust = [Dust(beta=1.80), Dust(beta=2.10)]
+    nu_range = np.exp(np.linspace(np.log(cst.c/(1500*1e-6)), np.log(cst.c/(50*1e-6)), 100))
+    wl_range = 1e6*cst.c/nu_range
+    obs, err = mpu.get_obs(info_dict), mpu.get_err(info_dict)
+    ## HALF PACS ERROR
+    # err[0] = err[0]/2
+    herschel = get_Herschel()
+    dof = 2.
+    Th = info_dict['Th']
+
+    arguments = (dust, obs, err, herschel, Th, dof)
+    def lnposterior(x):
+        T, N1, N2 = x
+        if T<0 or T>30 or N1<17 or N1>26 or N2<17 or N2>26:
+            return -np.inf
+        else:
+            return -1.*mpfit.goodness_of_fit_f_3p(x, *arguments)
+    nwalkers, ndim = 20, 3
+    p0 = np.concatenate([
+        np.random.normal(scale=3, size=(nwalkers, 1)) + 10,
+        np.random.normal(scale=1.5, size=(nwalkers, 2)) + 21
+    ], axis=1)
+    print(p0.shape)
+    badTmask = ((p0[:, 0]<0)|(p0[:, 0]>30))
+    p0[badTmask, 0] = np.random.normal(scale=.5, size=p0[badTmask, 0].shape) + 10
+    badNmask = ((p0[:, 1]<17)|(p0[:, 1]>26))
+    p0[badNmask, 1] = np.random.normal(scale=.3, size=p0[badNmask, 1].shape) + 21
+    badNmask = ((p0[:, 2]<17)|(p0[:, 2]>26))
+    p0[badNmask, 2] = np.random.normal(scale=.3, size=p0[badNmask, 2].shape) + 21
+    print(p0)
+    print("NOMINAL", nominal)
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnposterior)
+    sampler.run_mcmc(p0, niter+burn)
+    samples = sampler.chain[:, burn:, :].reshape((-1, ndim))
+
+    plt.figure(figsize=(10, 7))
+    for s in sampler.chain[:, -20:, :].reshape((-1, ndim)):
+        cloudf = Greybody([Th, s[0]], [10**x for x in s[1:]], dust)
+        plt.plot(wl_range, cloudf.radiate(nu_range), '-', alpha=0.1,
+            color='grey')
+    cloud = Greybody([Th, nominal[0]], [10**x for x in nominal[1:]], dust)
+    plt.plot(wl_range, cloud.radiate(nu_range), '-', color=color,
+        label=str(cloud))
+    plt.errorbar(mpu.H_WL, obs, yerr=err, fmt='.', capsize=6,
+        color=color, label=name)
+    plt.xscale('log')
+    plt.ylim((0, 230))
+    plt.legend()
+    plt.show()
+
+    ### CHAIN PLOT
+    plt.figure()
+    for i in range(3):
+        plt.subplot(311+i)
+        for j in range(nwalkers):
+            plt.plot(sampler.chain[j, :, i])
+        plt.plot(np.arange(samples.shape[0])*sampler.chain.shape[1]/samples.shape[0],
+            samples[:, i], '--', color='k', linewidth=3)
+    plt.show()
+
+    fig = corner.corner(samples, labels=['Tc', 'Nh', 'Nc'], truths=nominal,
+        # range=[(3, 16), (20, 21.6), (21.5, 23.5)])
+        range=[(0, 21), (19.5, 21.6), (17., 23.5)])
+    fig.set_size_inches((10, 10))
+    plt.title("emcee (n={:d})".format(niter*nwalkers))
+    plt.show()
     return
 
 if __name__ == "__main__":
