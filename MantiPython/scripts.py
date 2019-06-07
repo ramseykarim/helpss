@@ -422,11 +422,16 @@ def mtest_3dgrid_to_single_pixel_PLOT():
     Ncrange = np.arange(*Nclim, 0.03)
     print(Xs_grid.shape)
     print(Tcrange.shape, Nhrange.shape, Ncrange.shape)
+    print(Xs_grid.ptp(), Xs_grid.min(), Xs_grid.max())
     from mayavi import mlab
-    src = mlab.pipeline.scalar_field(Xs_grid)
-    mlab.pipeline.iso_surface(src, contours=[2,], opacity=0.3)
-    mlab.pipeline.iso_surface(src, contours=[1,], opacity=0.4)
-    mlab.pipeline.iso_surface(src, contours=[0.5,], opacity=0.5)
+    src = mlab.pipeline.scalar_field(-Xs_grid)
+    # mlab.pipeline.iso_surface(src, contours=[0., 0.1, 0.2, 0.3, .5],
+    #     opacity=0.8, vmin=0, vmax=.5)
+    mlab.pipeline.volume(src, vmin=0, vmax=0.5)
+    # mlab.pipeline.iso_surface(src, contours=[2,], opacity=0.3)
+    # mlab.pipeline.iso_surface(src, contours=[1,], opacity=0.4)
+    # mlab.pipeline.iso_surface(src, contours=[0.5,], opacity=0.5)
+    mlab.axes()
     mlab.show()
 
 def mtest_emcee_2p():
