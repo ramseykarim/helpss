@@ -16,11 +16,11 @@ This is where I will run science code on my laptop!
 
 def main():
     # mtest_corner_3p_boostrap_single_pixel()
-    mtest_emcee_3p()
-
+    # mtest_emcee_3p()
+    mtest_3dgrid_to_single_pixel_PLOT()
 
 def desktop_main():
-    mtest_3dgrid_to_single_pixel()
+    mtest_3dgrid_to_single_pixel_WRITE()
 
 """
 Scripts below here
@@ -290,7 +290,7 @@ def mtest_corner_2p_boostrap_single_pixel():
     plt.show()
 
 def mtest_corner_3p_boostrap_single_pixel():
-    pixel_index = 0
+    pixel_index = 6
     niter = 500
     good, name, coords, color = mpu.PIXELS_OF_INTEREST[pixel_index]
     info_dict = mpu.get_manticore_info(manticore_soln_3p, *coords)
@@ -373,7 +373,7 @@ def mtest_grid_to_single_pixel():
     plt.imshow(gofgrid, origin='lower', extent=ex, aspect=aspect)
     plt.show()
 
-def mtest_3dgrid_to_single_pixel():
+def mtest_3dgrid_to_single_pixel_WRITEOUT():
     pixel_index = 6
     good, name, coords, color = mpu.PIXELS_OF_INTEREST[pixel_index]
     info_dict = mpu.get_manticore_info(manticore_soln_3p, *coords)
@@ -412,6 +412,22 @@ def mtest_3dgrid_to_single_pixel():
     print("Written and finished")
     return
 
+def mtest_3dgrid_to_single_pixel_PLOT():
+    with open("grid_file.pkl", 'rb') as pfl:
+        Xs_grid = pickle.load(pfl)
+    Tclim, Nclim = (10, 14), (20., 23.)
+    Nhlim = (20., 22.)
+    Tcrange = np.arange(*Tclim, 0.03)
+    Nhrange = np.arange(*Nhlim, 0.03)
+    Ncrange = np.arange(*Nclim, 0.03)
+    print(Xs_grid.shape)
+    print(Tcrange.shape, Nhrange.shape, Ncrange.shape)
+    from mayavi import mlab
+    src = mlab.pipeline.scalar_field(Xs_grid)
+    mlab.pipeline.iso_surface(src, contours=[2,], opacity=0.3)
+    mlab.pipeline.iso_surface(src, contours=[1,], opacity=0.4)
+    mlab.pipeline.iso_surface(src, contours=[0.5,], opacity=0.5)
+    mlab.show()
 
 def mtest_emcee_2p():
     pixel_index = 0
@@ -482,14 +498,19 @@ def mtest_emcee_2p():
 
 
 def mtest_emcee_3p():
-    pixel_index = 6
-    niter, burn = 500, 250
+    # standard sampling, with a couple nifty plots
+    # saves PDF of the corner plot
+    # Currently also plots data
+    pixel_index = 1
+    niter, burn = 800, 400
     good, name, coords, color = mpu.PIXELS_OF_INTEREST[pixel_index]
     info_dict = mpu.get_manticore_info(manticore_soln_3p, *coords)
     nominal = [info_dict[x] for x in ("Tc", "Nh", "Nc") if x in info_dict]
+    print("NOMINAL", nominal)
+    print("nom err", [info_dict[x] for x in ("dTc", "dNh", "dNc") if x in info_dict])
     for i in (1, 2):
         nominal[i] = np.log10(nominal[i])
-
+    print("NOMINAL", nominal)
     dust = [Dust(beta=1.80), Dust(beta=2.10)]
     nu_range = np.exp(np.linspace(np.log(cst.c/(1500*1e-6)), np.log(cst.c/(50*1e-6)), 100))
     wl_range = 1e6*cst.c/nu_range
@@ -499,21 +520,20 @@ def mtest_emcee_3p():
     herschel = get_Herschel()
     dof = 2.
     Th = info_dict['Th']
-
     arguments = (dust, obs, err, herschel, Th, dof)
     def lnposterior(x):
         T, N1, N2 = x
-        if T<0 or T>30 or N1<17 or N1>26 or N2<17 or N2>26:
+        if T<0 or T>Th or N1<17 or N1>26 or N2<17 or N2>26:
             return -np.inf
         else:
             return -1.*mpfit.goodness_of_fit_f_3p(x, *arguments)
-    nwalkers, ndim = 20, 3
+    nwalkers, ndim = 60, 3
     p0 = np.concatenate([
         np.random.normal(scale=3, size=(nwalkers, 1)) + 10,
         np.random.normal(scale=1.5, size=(nwalkers, 2)) + 21
     ], axis=1)
     print(p0.shape)
-    badTmask = ((p0[:, 0]<0)|(p0[:, 0]>30))
+    badTmask = ((p0[:, 0]<0)|(p0[:, 0]>Th))
     p0[badTmask, 0] = np.random.normal(scale=.5, size=p0[badTmask, 0].shape) + 10
     badNmask = ((p0[:, 1]<17)|(p0[:, 1]>26))
     p0[badNmask, 1] = np.random.normal(scale=.3, size=p0[badNmask, 1].shape) + 21
@@ -524,7 +544,6 @@ def mtest_emcee_3p():
     sampler = emcee.EnsembleSampler(nwalkers, ndim, lnposterior)
     sampler.run_mcmc(p0, niter+burn)
     samples = sampler.chain[:, burn:, :].reshape((-1, ndim))
-
     plt.figure(figsize=(10, 7))
     for s in sampler.chain[:, -20:, :].reshape((-1, ndim)):
         cloudf = Greybody([Th, s[0]], [10**x for x in s[1:]], dust)
@@ -541,20 +560,37 @@ def mtest_emcee_3p():
     plt.show()
 
     ### CHAIN PLOT
-    plt.figure()
+    plt.figure(figsize=(16, 9))
     for i in range(3):
         plt.subplot(311+i)
         for j in range(nwalkers):
             plt.plot(sampler.chain[j, :, i])
-        plt.plot(np.arange(samples.shape[0])*sampler.chain.shape[1]/samples.shape[0],
-            samples[:, i], '--', color='k', linewidth=3)
+        # plt.plot(np.arange(samples.shape[0])*sampler.chain.shape[1]/samples.shape[0],
+        #     samples[:, i], '--', color='k', linewidth=3)
     plt.show()
+
+    # simulated_data = mpu.deque()
+    # for s in samples:
+    #     cloudf = Greybody([Th, s[0]], [10**x for x in s[1:]], dust)
+    #     simulated_data.append([d.detect(cloudf) for d in herschel])
+    # a = np.stack(simulated_data, axis=0)
+    # big_data = np.concatenate([samples, a], axis=1)
+    # print(big_data.shape)
+    # fig = corner.corner(big_data, labels=['Tc', 'Nh', 'Nc',
+    #     'PACS160um', 'SPIRE250um', 'SPIRE350um', 'SPIRE500um'],
+    #     truths=nominal+obs,
+    #     # range=[(3, 16), (20, 21.6), (21.5, 23.5)])
+    #     range=[(0, 16), (19.5, 21.6), (17., 23.5),
+    #         (0, 250), (0, 250), (0, 250), (0, 250)])
 
     fig = corner.corner(samples, labels=['Tc', 'Nh', 'Nc'], truths=nominal,
         # range=[(3, 16), (20, 21.6), (21.5, 23.5)])
-        range=[(0, 21), (19.5, 21.6), (17., 23.5)])
+        range=[(0, 16), (19.5, 21.6), (17., 23.5)])
     fig.set_size_inches((10, 10))
     plt.title("emcee (n={:d})".format(niter*nwalkers))
+
+    # fig.set_size_inches((20, 20))
+    # plt.savefig("/home/ramsey/Desktop/test_corner.pdf")
     plt.show()
     return
 

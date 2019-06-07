@@ -57,10 +57,11 @@ PIXELS_OF_INTEREST = (
     (1, 'B1', (551-1, 307-1), 'dodgerblue'),
     (1, 'NGC 1333', (590-1, 520-1), 'midnightblue'),
     (1, 'L1455', (353-1, 554-1), 'forestgreen'),
-    (0, 'L1455', (465-1, 513-1), 'olive'),
+    (0, 'L1455', (465-1, 513-1), 'olive'), # dNh larger than Nh
     (0, 'L1455', (425-1, 401-1), 'darkmagenta'),
-    (0, 'B1', (587-1, 264-1), 'salmon'),
-    (0, 'B1', (587-1, 260-1), 'firebrick'),
+    (0, 'B1', (587-1, 264-1), 'salmon'), # dNc ~ 0.5*Nc
+    (0, 'B1', (587-1, 260-1), 'firebrick'), # Tc ~ 4 K
+    (0, 'B1', (587, 260), 'deeppink'), # Tc ~ 6 K
 
 )
 
