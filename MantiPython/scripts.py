@@ -20,7 +20,8 @@ def main():
     mtest_3dgrid_to_single_pixel_PLOT()
 
 def desktop_main():
-    mtest_3dgrid_to_single_pixel_WRITE()
+    # mtest_emcee_3p()
+    mtest_3dgrid_to_single_pixel_PLOT()
 
 """
 Scripts below here
@@ -388,13 +389,13 @@ def mtest_3dgrid_to_single_pixel_WRITEOUT():
     nominal[1] = np.log10(nominal[1])
     nominal[2] = np.log10(nominal[2])
     print("Tc:{:5.2f}, Nh:{:5.2f}, Nc:{:5.2f}".format(*nominal))
-    Tclim, Nclim = (10, 14), (20., 23.)
-    Nhlim = (20., 22.)
+    Tclim, Nclim = (0, 16), (19., 21.)
+    Nhlim = (20., 21.5)
     # ex = (*Tclim, *Nclim)
     # aspect = (Tclim[1] - Tclim[0]) / (Nclim[1] - Nclim[0])
-    Tcrange = np.arange(*Tclim, 0.03)
-    Nhrange = np.arange(*Nhlim, 0.03)
-    Ncrange = np.arange(*Nclim, 0.03)
+    Tcrange = np.arange(*Tclim, 0.05)
+    Nhrange = np.arange(*Nhlim, 0.05)
+    Ncrange = np.arange(*Nclim, 0.05)
     Tcgrid, Nhgrid, Ncgrid = np.meshgrid(Tcrange, Nhrange, Ncrange, indexing='ij')
     print(Tcgrid.shape, Tcgrid.size)
     if int(input("Ready? Type '1'")) != 1:
@@ -407,31 +408,43 @@ def mtest_3dgrid_to_single_pixel_WRITEOUT():
     gofgrid = np.log10(gofgrid.reshape(Tcgrid.shape))
     # plt.imshow(gofgrid, origin='lower', extent=ex, aspect=aspect)
     # plt.show()
-    with open("grid_file.pkl", 'wb') as pfl:
+    # NOTE :::
+    # grid_file_p6_lowNc.pkl goes from Nc:19-21, and _p6.pkl goes from Nc:21:22.5
+    # _p1.pkl goes from Tc(0,16) Nh(20, 21.5) Nc(21, 22.5)
+    # [original].pkl goes from Tc(4,16) ??? ??? (check github)
+    with open("grid_file_p6_lowNc.pkl", 'wb') as pfl:
         pickle.dump(gofgrid, pfl)
     print("Written and finished")
     return
 
 def mtest_3dgrid_to_single_pixel_PLOT():
-    with open("grid_file.pkl", 'rb') as pfl:
-        Xs_grid = pickle.load(pfl)
-    Tclim, Nclim = (10, 14), (20., 23.)
-    Nhlim = (20., 22.)
-    Tcrange = np.arange(*Tclim, 0.03)
-    Nhrange = np.arange(*Nhlim, 0.03)
-    Ncrange = np.arange(*Nclim, 0.03)
+    with open("grid_file_p6.pkl", 'rb') as pfl:
+        Xs_grid_hiNc = pickle.load(pfl)
+    with open("grid_file_p6_lowNc.pkl", 'rb') as pfl:
+        Xs_grid_lowNc = pickle.load(pfl)
+    Xs_grid = np.concatenate([Xs_grid_lowNc, Xs_grid_hiNc], axis=2)
+    del Xs_grid_hiNc, Xs_grid_lowNc
+    Tclim, Nclim = (0, 16), (19., 22.5)
+    Nhlim = (20., 21.5)
+    Tcrange = np.arange(*Tclim, 0.05)
+    Nhrange = np.arange(*Nhlim, 0.05)
+    Ncrange = np.arange(*Nclim, 0.05)
     print(Xs_grid.shape)
     print(Tcrange.shape, Nhrange.shape, Ncrange.shape)
     print(Xs_grid.ptp(), Xs_grid.min(), Xs_grid.max())
     from mayavi import mlab
     src = mlab.pipeline.scalar_field(-Xs_grid)
-    # mlab.pipeline.iso_surface(src, contours=[0., 0.1, 0.2, 0.3, .5],
-    #     opacity=0.8, vmin=0, vmax=.5)
-    mlab.pipeline.volume(src, vmin=0, vmax=0.5)
+    mlab.pipeline.iso_surface(src, contours=[-1.5, -1, -.5],
+        colormap='cool', opacity=0.2, vmin=-3, vmax=0)
+    mlab.pipeline.iso_surface(src, contours=[0., 0.1, 0.2, 0.3, .5],
+        opacity=0.8, vmin=0, vmax=.5, colormap='hot')
+    # mlab.pipeline.volume(src, vmin=0, vmax=0.5)
     # mlab.pipeline.iso_surface(src, contours=[2,], opacity=0.3)
     # mlab.pipeline.iso_surface(src, contours=[1,], opacity=0.4)
     # mlab.pipeline.iso_surface(src, contours=[0.5,], opacity=0.5)
-    mlab.axes()
+    mlab.axes(extent=[0, Xs_grid.shape[0], 0, Xs_grid.shape[1], 0, Xs_grid.shape[2]],
+        ranges=[*Tclim, *Nhlim, *Nclim], nb_labels=6,
+        xlabel="Tc", ylabel='Nh', zlabel="Nc")
     mlab.show()
 
 def mtest_emcee_2p():
@@ -506,7 +519,7 @@ def mtest_emcee_3p():
     # standard sampling, with a couple nifty plots
     # saves PDF of the corner plot
     # Currently also plots data
-    pixel_index = 1
+    pixel_index = 6
     niter, burn = 800, 400
     good, name, coords, color = mpu.PIXELS_OF_INTEREST[pixel_index]
     info_dict = mpu.get_manticore_info(manticore_soln_3p, *coords)

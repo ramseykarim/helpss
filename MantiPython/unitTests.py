@@ -425,7 +425,7 @@ def test_emcee():
 all_tests = tests_dust + tests_greybody + tests_instrument + tests_manticore
 
 if __name__ == "__main__":
-    test_emcee()
+    test_multiprocessing()
     # for f in all_tests:
     #     try:
     #         f()
