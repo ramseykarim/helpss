@@ -376,20 +376,21 @@ tests_manticore = [test_manticore_retrieval_2p,
 imported package tests
 """
 mptest_stub = "<IMPORTANT PACKAGES>"
-import multiprocessing as mproc
-import emcee
 from mantipyfit import goodness_of_fit_f_2p, goodness_of_fit_f_3p
-import corner
 
 def test_multiprocessing():
+    import multiprocessing as mproc
     print(mproc.cpu_count())
 
 def test_corner():
+    import corner
     samples = np.random.normal(size=(300, 2))
     corner.corner(samples, labels=['x', 'y'], truths=[0, 0])
     plt.show()
 
 def test_emcee():
+    import corner
+    import emcee
     info_dict = get_manticore_info(manticore_soln_2p, 582-1, 270-1)
     nominal = [info_dict[x] for x in ("Tc", "Nc") if x in info_dict]
     for i in (1,):
@@ -421,11 +422,23 @@ def test_emcee():
         truths=nominal,)# range=[(0, 15), (18, 23.5)])
     plt.show()
 
+def test_threading():
+    from concurrent.futures import ThreadPoolExecutor
+    list1, list2 = dict(), dict()
+    def thread_function(index, writeto1=list1, writeto2=list2):
+        x = index+1
+        writeto1[index] = x
+        x = x**3
+        writeto2[index] = x
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        executor.map(thread_function, range(200))
+    print("1", list1)
+    print("2", list2)
 
 all_tests = tests_dust + tests_greybody + tests_instrument + tests_manticore
 
 if __name__ == "__main__":
-    test_multiprocessing()
+    test_threading()
     # for f in all_tests:
     #     try:
     #         f()

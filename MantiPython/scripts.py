@@ -1,4 +1,5 @@
 import numpy as np
+import sys
 import matplotlib.pyplot as plt
 import scipy.constants as cst
 import mpy_utils as mpu
@@ -17,11 +18,11 @@ This is where I will run science code on my laptop!
 def main():
     # mtest_corner_3p_boostrap_single_pixel()
     # mtest_emcee_3p()
-    mtest_3dgrid_to_single_pixel_PLOT()
+    mtest_manyemcee()
 
 def desktop_main():
     # mtest_emcee_3p()
-    mtest_3dgrid_to_single_pixel_PLOT()
+    mtest_testgrid()
 
 """
 Scripts below here
@@ -610,6 +611,119 @@ def mtest_emcee_3p():
     # fig.set_size_inches((20, 20))
     # plt.savefig("/home/ramsey/Desktop/test_corner.pdf")
     plt.show()
+    return
+
+def mtest_manyemcee():
+    start, end = mpu.PIXEL_CHAIN
+    print(start, "-----", end)
+    coords = []
+    current_coord = start
+    for i in range(35):
+        coords.append(current_coord)
+        current_coord = tuple(x+1 for x in current_coord)
+    print(len(coords), "pixels")
+    info_dict = mpu.get_manticore_info(manticore_soln_3p, tuple(coords))
+    dust_gen = lambda : [Dust(beta=1.80), Dust(beta=2.10)]
+    for i in range(1):
+        print(i, end=" ")
+        mpu.emcee_3p(i, info_dict, instrument=get_Herschel(), dust=dust_gen(),
+            goodnessoffit=mpfit.goodness_of_fit_f_3p,)
+    print('finished')
+
+def mtest_manygrids():
+    info_dict = mpu.gen_CHAIN_dict(manticore_soln_3p)
+    dust_gen = lambda : [Dust(beta=1.80), Dust(beta=2.10)]
+    Tclim, Nclim = (0, 16), (19, 22.5)
+    Nhlim = (20, 21.5)
+    dT, dN = 0.1, 0.05  # good resolution
+    # dT, dN = 1, 0.5
+    Tcrange = np.arange(*Tclim, dT)
+    Nhrange = np.arange(*Nhlim, dN)
+    Ncrange = np.arange(*Nclim, dN)
+    Tcgrid, Nhgrid, Ncgrid = np.meshgrid(Tcrange, Nhrange, Ncrange, indexing='ij')
+    for i in range(2, 35):
+        gofgrid = np.empty(Tcgrid.size)
+        with open('./emcee_imgs/logf.log', 'a') as wf:
+            wf.write("{:d} !\n".format(i))
+        mpu.grid_3d(i, info_dict, instrument=get_Herschel(), dust=dust_gen(),
+            goodnessoffit=mpfit.goodness_of_fit_f_3p,
+            Tcgrid=Tcgrid, Nhgrid=Nhgrid, Ncgrid=Ncgrid,
+            empty_grid=gofgrid)
+    print("finished")
+
+def mtest_testgrid():
+    Tclim, Nclim = (0, 16), (19, 22.5)
+    Nhlim = (20, 21.5)
+    Tcrange = np.arange(*Tclim, 0.1)
+    Nhrange = np.arange(*Nhlim, 0.05)
+    Ncrange = np.arange(*Nclim, 0.05)
+    Tcgrid, Nhgrid, Ncgrid = np.meshgrid(Tcrange, Nhrange, Ncrange, indexing='ij')
+    info_dict = mpu.gen_CHAIN_dict(manticore_soln_3p)
+    p_labels = ('Tc', 'Nh', 'Nc')
+    # soln_values = list(map(np.array, (info_dict[x] for x in p_labels)))
+    # fig, axes = plt.subplots(nrows=3, sharex=True, figsize=(12, 9))
+    # for i, sv in enumerate(soln_values):
+    #     if i > 0:
+    #         sv = np.log10(sv)
+    #     print(type(sv))
+    #     axes[i].plot(sv, 'o')
+    #     axes[i].set_ylabel(p_labels[i])
+    #     if i == len(soln_values)-1:
+    #         axes[i].set_xlabel("pixel position")
+    # plt.show()
+    # return
+
+    dusts = [Dust(beta=1.80), Dust(beta=2.10)]
+    herschel = get_Herschel()
+    Th, dof = info_dict['Th'][0], 1.
+    irange = [0,] + list(range(35))
+    for index in range(35):
+        nominal = [info_dict[x][index] for x in p_labels]
+        for x in (1, 2):
+            nominal[x] = np.log10(nominal[x])
+        chi_sq = info_dict['chi_sq'][index]
+        print("Xs manticore: ", chi_sq)
+        obs = [x[index] for x in mpu.get_obs(info_dict)]
+        err = [x[index] for x in mpu.get_err(info_dict)]
+        chi_sq = mpfit.goodness_of_fit_f_3p(nominal, dusts, obs, err, herschel, Th, dof)
+        print("Xs calculated:", chi_sq)
+        with open("./emcee_imgs/grid1_{:02d}.pkl".format(index), 'rb') as pfl:
+            print(pfl)
+            gofgrid = -1*(10**pickle.load(pfl))
+        print(gofgrid.min(), gofgrid.max())
+        print(gofgrid.shape)
+        from mayavi import mlab
+        fig_size = (1200, 1050)
+        fig = mlab.figure(figure="main", size=fig_size)
+        Tscale = 4.
+        src = mlab.pipeline.scalar_field(Tcgrid/Tscale, Nhgrid, Ncgrid, gofgrid)
+        mlab.pipeline.iso_surface(src, contours=[-100,],
+            opacity=0.1, vmin=-101, vmax=-100, colormap='gist_yarg')
+        mlab.pipeline.iso_surface(src, contours=[-5, -3],
+            colormap='cool', opacity=0.2, vmin=-8, vmax=-2)
+        mlab.pipeline.iso_surface(src, contours=[-2, -1.5, -1, -.5],
+            colormap='hot', opacity=0.35, vmin=-2, vmax=-.3)
+        mlab.axes(ranges=sum(([x.min(), x.max()] for x in (Tcrange, Nhrange, Ncrange)), []),
+            extent=sum(([x.min(), x.max()] for x in (Tcrange/Tscale, Nhrange, Ncrange)), []),
+            nb_labels=5, xlabel="Tc", ylabel='Nh', zlabel="Nc")
+        mlab.title("pt({:02d}) [Tc: {:04.1f}, Nh: {:4.1f}, Nc: {:4.1f}], ChiSq: {:6.2f}".format(
+            index, *nominal, chi_sq),
+            size=0.25, height=.9)
+        print(nominal)
+        nominal[0] /= Tscale
+        mlab.points3d(*([x] for x in nominal),
+            colormap='flag', mode='axes', scale_factor=0.2, line_width=4)
+        for x in ("x", "y", "z"):
+            pts = mlab.points3d(*([x] for x in nominal),
+                colormap='flag', mode='axes', scale_factor=0.2, line_width=4)
+            eval("pts.glyph.glyph_source._trfm.transform.rotate_{:s}(45)".format(x))
+        mlab.view(azimuth=45., elevation=92., distance=9.,
+            focalpoint=[10./Tscale, 20.75, 20.75])
+        # mlab.draw(figure=fig)
+        mlab.show()
+        # mlab.savefig("./emcee_imgs/gridimg1_{:02d}.png".format(index),
+        #     figure=fig, magnification=1)
+        # mlab.clf()
     return
 
 if __name__ == "__main__":
