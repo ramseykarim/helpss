@@ -22,7 +22,7 @@ def main():
 
 def desktop_main():
     # mtest_emcee_3p()
-    mtest_testgrid()
+    mtest_hidefgrid()
 
 """
 Scripts below here
