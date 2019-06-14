@@ -196,7 +196,7 @@ def emcee_3p(index, info_dict,
 def grid_3d(index, info_dict,
     dust=None, instrument=None, goodnessoffit=None,
     Tcgrid=None, Nhgrid=None, Ncgrid=None,
-    empty_grid=None):
+    empty_grid=None, fname_override=None):
     p_labels = ('Tc', 'Nh', 'Nc')
     nominal = [info_dict[x][index] for x in p_labels]
     Th = info_dict['Th'][index]
@@ -229,7 +229,11 @@ def grid_3d(index, info_dict,
         gof = goodnessoffit(pvec, *arguments)
         empty_grid[i] = gof
     empty_grid = np.log10(empty_grid.reshape(Tcgrid.shape))
-    with open("./emcee_imgs/grid1_{:02d}.pkl".format(index), 'wb') as pfl:
+    if fname_override is not None:
+        fname = fname_override
+    else:
+        fname = "./emcee_imgs/grid1_{:02d}.pkl".format(index)
+    with open(fname, 'wb') as pfl:
         pickle.dump(empty_grid, pfl)
     return empty_grid
 
