@@ -290,10 +290,10 @@ def render_grid(index, info_dict, fname=None, savename=None,
             opacity=0.1, vmin=-101, vmax=-100, colormap='gist_yarg')
         ####### Blue Xs~5 contours
         mlab.pipeline.iso_surface(src, contours=[-5, -3],
-            colormap='cool', opacity=0.2, vmin=-8, vmax=-2)
+            colormap='cool', opacity=0.15, vmin=-8, vmax=-2)
     ####### Red/Yellow Xs~1 contours
-    mlab.pipeline.iso_surface(src, contours=[-1.5, -1, -.5, -.1],
-        colormap='hot', opacity=0.35, vmin=-2, vmax=-.3)
+    mlab.pipeline.iso_surface(src, contours=[-1.5, -1, -.5],
+        colormap='hot', opacity=0.25, vmin=-2, vmax=-.3)
     ####### Axes
     mlab.axes(ranges=sum(([x.min(), x.max()] for x in (Tcrange, Nhrange, Ncrange)), []),
         extent=sum(([x.min(), x.max()] for x in (Tcrange/Tscale, Nhrange, Ncrange)), []),

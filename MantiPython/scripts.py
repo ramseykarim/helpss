@@ -18,7 +18,7 @@ This is where I will run science code on my laptop!
 def main():
     # mtest_corner_3p_boostrap_single_pixel()
     # mtest_emcee_3p()
-    mtest_testgrid()
+    mtest_renderhidefgrids()
 
 def desktop_main():
     # mtest_emcee_3p()
@@ -704,15 +704,17 @@ def mtest_manyhidefgrids():
 
 def mtest_renderhidefgrids():
     Tclim, Nhlim, Nclim, dT, dN = mpu.LIMS_grid2
+    #Tclim, Nhlim, Nclim, dT, dN = mpu.LIMS_hidef_00
     ranges = mpu.genranges((Tclim, Nhlim, Nclim), (dT, dN))
     grids = mpu.gengrids(ranges)
     info_dict = mpu.gen_CHAIN_dict(manticore_soln_3p)
     from mayavi import mlab
-    for index in range(0, 35, 4):
+    for index in [0]:
         fname = "./emcee_imgs/grid2_{:02d}.pkl".format(index)
-        # fname = "./emcee_imgs/grid1_00_HIDEF.pkl"
+        #savename = "./emcee_imgs/gridimg2_{:02d}.png".format(index)
+        #fname = "./emcee_imgs/grid1_00_HIDEF.pkl"
         mpu.render_grid(index, info_dict, fname=fname,
-            grids=grids, ranges=ranges, more_contours=True,
+            grids=grids, ranges=ranges, more_contours=False,
             focalpoint_nominal=False, mlab=mlab)
     return
 
