@@ -6,6 +6,7 @@ import emcee
 import corner
 import pickle
 import matplotlib.pyplot as plt
+import sys
 
 # Constants
 
@@ -86,6 +87,26 @@ def gen_CHAIN_dict(source):
         current_coord = tuple(x+1 for x in current_coord)
     return get_manticore_info(source, tuple(coords))
 
+LIMS_hidef_00 = (
+    (11.645157051086425, 13.245157051086426,), # Tc
+    (20.694322967529295, 20.8943229675293,), # Nh
+    (20.65826873779297, 21.058268737792968,), # Nc
+    0.01, 0.0025) # dT, dN (arange)
+
+LIMS_grid1 = ((0, 16.), (20, 21.5), (19, 22.5), 0.1, 0.05) # Tc,Nh,Nc,dT,dN (arange)
+LIMS_grid2 = ((4, 16.01), (20, 21.21), (19, 22.41), 0.05, 0.025) # same ^
+
+def genranges(lims, differentials):
+    # lims: Tc, Nh, Nc
+    dT, dN = differentials
+    return [np.arange(*l, d) for l, d in zip(lims, (dT, dN, dN))]
+
+def gengrids(ranges):
+    # output of genranges
+    return np.meshgrid(*ranges, indexing='ij')
+
+P_LABELS = ('Tc', 'Nh', 'Nc')
+PE_LABELS = ('dTc', 'dNh', 'dNc')
 
 def get_obs(info_dict):
     return [info_dict[x] for x in ("obs160", "obs250", "obs350", "obs500")]
@@ -220,10 +241,9 @@ def grid_3d(index, info_dict,
     if own_grid:
         Tclim, Nclim = (0, 16), (19, 22.5)
         Nhlim = (20, 21.5)
-        Tcrange = np.arange(*Tclim, 0.1)
-        Nhrange = np.arange(*Nhlim, 0.05)
-        Ncrange = np.arange(*Nclim, 0.05)
-        Tcgrid, Nhgrid, Ncgrid = np.meshgrid(Tcrange, Nhrange, Ncrange, indexing='ij')
+        dT, dN = 0.1, 0.05
+        Tcrange, Nhrange, Ncrange = genranges((Tclim, Nhlim, Nclim), (dT, dN))
+        Tcgrid, Nhgrid, Ncgrid = gengrids(Tcrange, Nhrange, Ncrange)
         empty_grid = np.empty(Tcgrid.size)
     for i, pvec in enumerate(zip(Tcgrid.ravel(), Nhgrid.ravel(), Ncgrid.ravel())):
         gof = goodnessoffit(pvec, *arguments)
@@ -237,8 +257,69 @@ def grid_3d(index, info_dict,
         pickle.dump(empty_grid, pfl)
     return empty_grid
 
-def render_grid(index, Tclim=None, Nhlim=None, Nclim=None):
-    if Tclim is None:
-        Tclim, Nclim = (0, 16), (19, 22.5)
-        Nhlim = (20, 21.5)
+
+def render_grid(index, info_dict, fname=None, savename=None,
+    gofgrid=None, grids=None, ranges=None,
+    fig_size=(1200, 1050), Tscale=4,
+    more_contours=False, point_size=0.2, focalpoint_nominal=False,
+    mlab=None):
+    # mayavi rendering of some contours over chi squared surface
+    if mlab is None:
+        raise RuntimeError("Please pass the mlab module as kwarg 'mlab'")
+    if grids is None:
+        raise RuntimeError("Can't just leave grids blank these days")
+    Tcgrid, Nhgrid, Ncgrid = grids
+    if ranges is None:
+        raise RuntimeError("Can't just leave ranges blank these days")
+    Tcrange, Nhrange, Ncrange = ranges
+    if (fname is None) and (gofgrid is None):
+        # gofgrid, if given, is assumed to be multiplied by -1 and un-logged already
+        raise RuntimeError("Give filename of grid pickle or the actual grid")
+    nominal = [info_dict[x][index] for x in P_LABELS]
+    for x in (1, 2):
+        nominal[x] = np.log10(nominal[x])
+    chi_sq = info_dict['chi_sq'][index]
+    if gofgrid is None:
+        with open(fname, 'rb') as pfl:
+            gofgrid = -1*(10**pickle.load(pfl))
+    fig = mlab.figure(figure="main", size=fig_size)
+    src = mlab.pipeline.scalar_field(Tcgrid/Tscale, Nhgrid, Ncgrid, gofgrid)
+    if more_contours:
+        ####### Grey Xs=100 contour
+        mlab.pipeline.iso_surface(src, contours=[-100,],
+            opacity=0.1, vmin=-101, vmax=-100, colormap='gist_yarg')
+        ####### Blue Xs~5 contours
+        mlab.pipeline.iso_surface(src, contours=[-5, -3],
+            colormap='cool', opacity=0.2, vmin=-8, vmax=-2)
+    ####### Red/Yellow Xs~1 contours
+    mlab.pipeline.iso_surface(src, contours=[-1.5, -1, -.5, -.1],
+        colormap='hot', opacity=0.35, vmin=-2, vmax=-.3)
+    ####### Axes
+    mlab.axes(ranges=sum(([x.min(), x.max()] for x in (Tcrange, Nhrange, Ncrange)), []),
+        extent=sum(([x.min(), x.max()] for x in (Tcrange/Tscale, Nhrange, Ncrange)), []),
+        nb_labels=5, xlabel="Tc", ylabel='Nh', zlabel="Nc")
+    ####### Title
+    mlab.title("pt({:02d}) [Tc: {:04.1f}, Nh: {:4.1f}, Nc: {:4.1f}], ChiSq: {:6.2f}".format(
+        index, *nominal, chi_sq),
+        size=0.25, height=.9)
+    nominal[0] /= Tscale # since the grid is rescaled
+    ####### Manticore solution point
+    mlab.points3d(*([x] for x in nominal),
+        colormap='flag', mode='axes', scale_factor=point_size, line_width=4)
+    for x in ("x", "y", "z"):
+        pts = mlab.points3d(*([x] for x in nominal),
+            colormap='flag', mode='axes', scale_factor=point_size, line_width=4)
+        eval("pts.glyph.glyph_source._trfm.transform.rotate_{:s}(45)".format(x))
+    ####### Favorable camera angle
+    if focalpoint_nominal:
+        focalpoint = nominal
+    else:
+        focalpoint = [10./Tscale, 20.75, 20.75]
+    mlab.view(azimuth=45., elevation=92., distance=9.,
+        focalpoint=focalpoint)
+    if savename is not None:
+        mlab.savefig(savename, figure=fig, magnification=1)
+        mlab.clf()
+    else:
+        mlab.show()
     return

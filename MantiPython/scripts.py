@@ -22,7 +22,7 @@ def main():
 
 def desktop_main():
     # mtest_emcee_3p()
-    mtest_manyhidefgrids()
+    mtest_renderhidefgrids()
 
 """
 Scripts below here
@@ -681,15 +681,9 @@ def mtest_hidefgrid():
     return
 
 def mtest_manyhidefgrids():
-    Tclim = (4, 16.01)
-    Nhlim = (20, 21.21)
-    Nclim = (19, 22.41)
-    dT, dN = 0.05, 0.025
-    Tcrange = np.arange(*Tclim, dT)
-    Nhrange = np.arange(*Nhlim, dN)
-    Ncrange = np.arange(*Nclim, dN)
-    ranges = (Tcrange, Nhrange, Ncrange)
-    Tcgrid, Nhgrid, Ncgrid = np.meshgrid(Tcrange, Nhrange, Ncrange, indexing='ij')
+    Tclim, Nhlim, Nclim, dT, dN = mpu.LIMS_grid2
+    Tcrange, Nhrange, Ncrange = mpu.genranges((Tclim, Nhlim, Nclim), (dT, dN))
+    Tcgrid, Nhgrid, Ncgrid = mpu.gengrids((Tcrange, Nhrange, Ncrange))
     print(Tcgrid.shape)
     print(Tcgrid.size)
     info_dict = mpu.gen_CHAIN_dict(manticore_soln_3p)
@@ -708,37 +702,34 @@ def mtest_manyhidefgrids():
             wf.write("..finished {:d}\n".format(index))
     return
 
+def mtest_renderhidefgrids():
+    Tclim, Nhlim, Nclim, dT, dN = mpu.LIMS_grid2
+    ranges = mpu.genranges((Tclim, Nhlim, Nclim), (dT, dN))
+    grids = mpu.gengrids(ranges)
+    info_dict = mpu.gen_CHAIN_dict(manticore_soln_3p)
+    from mayavi import mlab
+    for index in range(0, 35, 4):
+        fname = "./emcee_imgs/grid2_{:02d}.pkl".format(index)
+        # fname = "./emcee_imgs/grid1_00_HIDEF.pkl"
+        mpu.render_grid(index, info_dict, fname=fname,
+            grids=grids, ranges=ranges, more_contours=True,
+            focalpoint_nominal=False, mlab=mlab)
+    return
 
 def mtest_testgrid():
-    Tclim, Nclim = (0, 16), (19, 22.5)
-    Nhlim = (20, 21.5)
-    Tcrange = np.arange(*Tclim, 0.1)
-    Nhrange = np.arange(*Nhlim, 0.05)
-    Ncrange = np.arange(*Nclim, 0.05)
-    Tcgrid, Nhgrid, Ncgrid = np.meshgrid(Tcrange, Nhrange, Ncrange, indexing='ij')
-
-    # Tclim = (11.645157051086425, 13.245157051086426,)
-    # Nhlim = (20.694322967529295, 20.8943229675293,)
-    # Nclim = (20.65826873779297, 21.058268737792968,)
-    # dT, dN = 0.01, 0.0025  # good resolution
-    # # dT, dN = 0.3, 0.2
-    # Tcrange = np.arange(*Tclim, dT)
-    # Nhrange = np.arange(*Nhlim, dN)
-    # Ncrange = np.arange(*Nclim, dN)
-    # ranges = (Tcrange, Nhrange, Ncrange)
-    # Tcgrid, Nhgrid, Ncgrid = np.meshgrid(Tcrange, Nhrange, Ncrange, indexing='ij')
-
+    Tclim, Nhlim, Nclim, dT, dN = mpu.LIMS_grid1
+    Tcrange, Nhrange, Ncrange = mpu.genranges((Tclim, Nhlim, Nclim), (dT, dN))
+    Tcgrid, Nhgrid, Ncgrid = mpu.gengrids((Tcrange, Nhrange, Ncrange))
     info_dict = mpu.gen_CHAIN_dict(manticore_soln_3p)
-    p_labels = ('Tc', 'Nh', 'Nc')
 
-    # soln_values = list(map(np.array, (info_dict[x] for x in p_labels)))
+    # soln_values = list(map(np.array, (info_dict[x] for x in mpu.P_LABELS)))
     # fig, axes = plt.subplots(nrows=3, sharex=True, figsize=(12, 9))
     # for i, sv in enumerate(soln_values):
     #     if i > 0:
     #         sv = np.log10(sv)
     #     print(type(sv))
     #     axes[i].plot(sv, 'o')
-    #     axes[i].set_ylabel(p_labels[i])
+    #     axes[i].set_ylabel(mpu.P_LABELS[i])
     #     if i == len(soln_values)-1:
     #         axes[i].set_xlabel("pixel position")
     # plt.show()
@@ -749,7 +740,7 @@ def mtest_testgrid():
     Th, dof = info_dict['Th'][0], 1.
     irange = [0,] + list(range(35))
     for index in (0,):
-        nominal = [info_dict[x][index] for x in p_labels]
+        nominal = [info_dict[x][index] for x in mpu.P_LABELS]
         for x in (1, 2):
             nominal[x] = np.log10(nominal[x])
         chi_sq = info_dict['chi_sq'][index]
