@@ -377,7 +377,8 @@ def plot_parameters_across_filament(info_dicts,
         else:
             # all other parameters
             p, l = ax_label.split()
-            ax.plot(impact_parameter, info_dicts[int(l=='3p')][p][i0:i1],
+            ax.errorbar(impact_parameter, info_dicts[int(l=='3p')][p][i0:i1],
+                yerr=info_dicts[int(l=='3p')]['d'+p][i0:i1], capsize=2,
                 **plot_kwargs)
         ax.set_ylabel(ax_label)
     return axes

@@ -752,7 +752,9 @@ def mtest_testgrid():
 
 
 def mtest_plot_params():
-    plot_kwargs = {'color': 'green', 'linewidth': 1, 'linestyle':'-', 'label':None}
+    plot_kwargs = {'color': 'green',
+        'linewidth': 1, 'linestyle':'-', 'label':None,
+        'marker':'^'}
     colors = ('green', 'blue', 'orange', 'navy', 'violet', 'firebrick')
     axes = None
     for i in range(2, 6, 3):
