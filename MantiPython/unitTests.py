@@ -334,6 +334,16 @@ def test_manticore_2p_mask_pixels():
     plt.imshow(Tcdata, origin='lower')
     plt.show()
 
+from mpy_utils import gen_CHAIN_dict
+def test_get_CHAIN():
+    desktop_soln_path = "/n/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/T4-absdiff-Per1J-3param-plus045-plus05.0pct-cpow-1000-0.1-2.10hpow-1000-0.1-1.80-bcreinit-Th15.95-Nh5E19,2E22.fits"
+    for i in range(6):
+        try:
+            gen_CHAIN_dict(desktop_soln_path, chain=i)
+        except Exception as e:
+            print(f"CHAIN {i} {e.__class__.__name__}: {e}")
+    print('done')
+
 
 from mpy_utils import get_obs, get_err
 from Instrument import get_Herschel
@@ -438,7 +448,7 @@ def test_threading():
 all_tests = tests_dust + tests_greybody + tests_instrument + tests_manticore
 
 if __name__ == "__main__":
-    test_threading()
+    test_get_CHAIN()
     # for f in all_tests:
     #     try:
     #         f()

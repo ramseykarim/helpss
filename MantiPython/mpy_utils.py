@@ -70,21 +70,41 @@ PIXELS_OF_INTEREST = (
     (0, 'B1', (587-1, 264-1), 'salmon'), # dNc ~ 0.5*Nc
     (0, 'B1', (587-1, 260-1), 'firebrick'), # Tc ~ 4 K
     (0, 'B1', (587, 260), 'deeppink'), # Tc ~ 6 K
-
 )
 
-PIXEL_CHAIN = (
-    (554-1, 271-1),
-    (588-1, 305-1)
+PIXEL_CHAINS = (
+    ((554-1, 271-1), (588-1, 305-1)), # 0 just southwest of B1 (diag NW)
+    ((507-1, 321-1), (529-1, 343-1)), # 1 more SW of B1 than previous (diag NW)
+    ((587-1, 483-1), (587-1, 552-1)), # 2 south of NGC 1333 (horiz W)
+    ((381-1, 671-1), (347-1, 705-1)), # 3 just southeast of L1448 (diag SW)
+    ((365-1, 512-1), (390-1, 537-1)), # 4 close to L1455 (diag NW)
+    ((389-1, 427-1), (416-1, 454-1)), # 5 near L1455, up towards B1 (diag NW)
 )
 
-def gen_CHAIN_dict(source):
-    start, end = PIXEL_CHAIN
+def gen_CHAIN_dict(source, chain=0):
+    start, end = PIXEL_CHAINS[chain]
+    # ALL chains should head west!
+    if (end[0] > start[0]) and (end[1] > start[1]):
+        # diagonal cut, heading northwest
+        coord_fn = lambda coord: tuple(x+1 for x in coord)
+    elif (end[1] > start[1]) and end[0] == start[0]:
+        # horizontal cut, heading west
+        coord_fn = lambda coord: (coord[0], coord[1]+1)
+    elif (end[1] > start[1]) and (end[0] < start[0]):
+        # diagonal cut, heading southwest
+        coord_fn = lambda coord: (coord[0]-1, coord[1]+1)
+    else:
+        # vertical?
+        raise RuntimeError("gen_CHAIN_dict not prepared for this!")
     coords = []
     current_coord = start
-    for i in range(35):
+    count, max_count = 0, 200 # none of these is 200 elements long
+    while current_coord[1] <= end[1]:
         coords.append(current_coord)
-        current_coord = tuple(x+1 for x in current_coord)
+        current_coord = coord_fn(current_coord)
+        if count > max_count:
+            raise RuntimeError("max interations reached")
+    assert all(x==y for x, y in zip(coords[-1], end))
     return get_manticore_info(source, tuple(coords))
 
 LIMS_hidef_00 = (
@@ -262,7 +282,8 @@ def render_grid(index, info_dict, fname=None, savename=None,
     gofgrid=None, grids=None, ranges=None,
     fig_size=(1200, 1050), Tscale=4,
     more_contours=False, point_size=0.2, focalpoint_nominal=False,
-    mlab=None):
+    scatter_points=None, scatter_points_kwargs={},
+    mlab=None, noshow=False):
     # mayavi rendering of some contours over chi squared surface
     if mlab is None:
         raise RuntimeError("Please pass the mlab module as kwarg 'mlab'")
@@ -310,6 +331,13 @@ def render_grid(index, info_dict, fname=None, savename=None,
         pts = mlab.points3d(*([x] for x in nominal),
             colormap='flag', mode='axes', scale_factor=point_size, line_width=4)
         eval("pts.glyph.glyph_source._trfm.transform.rotate_{:s}(45)".format(x))
+    ####### Scatter additional points
+    if scatter_points is not None:
+        scatter_points_kwargs['color'] = scatter_points_kwargs.get('color', (0.219, 0.588, 0.192))
+        scatter_points_kwargs['opacity'] = scatter_points_kwargs.get('opacity', 0.4)
+        scatter_points_kwargs['scale_factor'] = scatter_points_kwargs.get('scale_factor', 0.1)
+        mlab.points3d(scatter_points[:, 0]/Tscale, scatter_points[:, 1], scatter_points[:, 2],
+            **scatter_points_kwargs)
     ####### Favorable camera angle
     if focalpoint_nominal:
         focalpoint = nominal
@@ -320,6 +348,37 @@ def render_grid(index, info_dict, fname=None, savename=None,
     if savename is not None:
         mlab.savefig(savename, figure=fig, magnification=1)
         mlab.clf()
-    else:
+    elif not noshow:
         mlab.show()
     return
+
+def plot_parameters_across_filament(info_dicts,
+        i0=0, size=None, axes=None, **plot_kwargs):
+    # plot parameters from info_dicts [i0:i0+size]
+    # each parameter gets an axis; should be 6 with Xs
+    # info_dicts is (2p, 3p)
+    axis_labels = list(p+' 3p' for p in P_LABELS) + list(p+' 2p' for p in P_LABELS if 'h' not in p) + ['chi_sq']
+    if axes is None:
+        # switch "F" to "C" for different axis stacking!
+        axes = plt.subplots(nrows=3, ncols=2, sharex=True, figsize=(12, 9))[1].flatten('F')
+    if size is None:
+        size = len(info_dicts[0]['Tc'])
+    i1 = i0+size
+    impact_parameter = range(-size//2, size//2)
+    # print("+++++", len(impact_parameter), size)
+    for ax, ax_label in zip(axes, axis_labels):
+        if len(ax_label.split()) == 1:
+            # chi_sq
+            chi_sqs = (idict[ax_label] for idict in info_dicts)
+            for chi_sq, m, l in zip(chi_sqs, ('$2$', '$3$'), ('--', '-')):
+                ax.plot(impact_parameter, chi_sq[i0:i1], marker=m, linestyle=l,
+                    **{k:v for k, v in plot_kwargs.items() if k not in ('marker', 'linestyle')})
+            ax.set_xlabel("impact parameter")
+        else:
+            # all other parameters
+            p, l = ax_label.split()
+            ax.plot(impact_parameter, info_dicts[int(l=='3p')][p][i0:i1],
+                **plot_kwargs)
+        ax.set_ylabel(ax_label)
+    return axes
+

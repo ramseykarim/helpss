@@ -22,7 +22,7 @@ def main():
 
 def desktop_main():
     # mtest_emcee_3p()
-    mtest_renderhidefgrids()
+    mtest_plot_params()
 
 """
 Scripts below here
@@ -719,29 +719,18 @@ def mtest_renderhidefgrids():
     return
 
 def mtest_testgrid():
+    from mayavi import mlab
     Tclim, Nhlim, Nclim, dT, dN = mpu.LIMS_grid1
-    Tcrange, Nhrange, Ncrange = mpu.genranges((Tclim, Nhlim, Nclim), (dT, dN))
-    Tcgrid, Nhgrid, Ncgrid = mpu.gengrids((Tcrange, Nhrange, Ncrange))
+    ranges = mpu.genranges((Tclim, Nhlim, Nclim), (dT, dN))
+    grids = mpu.gengrids(ranges)
     info_dict = mpu.gen_CHAIN_dict(manticore_soln_3p)
-
-    # soln_values = list(map(np.array, (info_dict[x] for x in mpu.P_LABELS)))
-    # fig, axes = plt.subplots(nrows=3, sharex=True, figsize=(12, 9))
-    # for i, sv in enumerate(soln_values):
-    #     if i > 0:
-    #         sv = np.log10(sv)
-    #     print(type(sv))
-    #     axes[i].plot(sv, 'o')
-    #     axes[i].set_ylabel(mpu.P_LABELS[i])
-    #     if i == len(soln_values)-1:
-    #         axes[i].set_xlabel("pixel position")
-    # plt.show()
-    # return
-
     dusts = [Dust(beta=1.80), Dust(beta=2.10)]
     herschel = get_Herschel()
     Th, dof = info_dict['Th'][0], 1.
+    Tscale = 4
     irange = [0,] + list(range(35))
     for index in (0,):
+        fname = "./emcee_imgs/grid1_{:02d}.pkl".format(index)
         nominal = [info_dict[x][index] for x in mpu.P_LABELS]
         for x in (1, 2):
             nominal[x] = np.log10(nominal[x])
@@ -751,46 +740,29 @@ def mtest_testgrid():
         err = [x[index] for x in mpu.get_err(info_dict)]
         chi_sq = mpfit.goodness_of_fit_f_3p(nominal, dusts, obs, err, herschel, Th, dof)
         print("Xs calculated:", chi_sq)
-        fname = "./emcee_imgs/grid1_{:02d}.pkl".format(index)
-        # fname = "./emcee_imgs/grid1_00_HIDEF.pkl"
-        with open(fname, 'rb') as pfl:
-            print(pfl)
-            gofgrid = -1*(10**pickle.load(pfl))
-        print(gofgrid.min(), gofgrid.max())
-        print(gofgrid.shape)
-        from mayavi import mlab
-        fig_size = (1200, 1050)
-        fig = mlab.figure(figure="main", size=fig_size)
-        Tscale = 4.
-        src = mlab.pipeline.scalar_field(Tcgrid/Tscale, Nhgrid, Ncgrid, gofgrid)
-        # mlab.pipeline.iso_surface(src, contours=[-100,],
-        #     opacity=0.1, vmin=-101, vmax=-100, colormap='gist_yarg')
-        # mlab.pipeline.iso_surface(src, contours=[-5, -3],
-        #     colormap='cool', opacity=0.2, vmin=-8, vmax=-2)
-        mlab.pipeline.iso_surface(src, contours=[-1.5, -1, -.5, -.1],
-            colormap='hot', opacity=0.35, vmin=-2, vmax=-.3)
-        mlab.axes(ranges=sum(([x.min(), x.max()] for x in (Tcrange, Nhrange, Ncrange)), []),
-            extent=sum(([x.min(), x.max()] for x in (Tcrange/Tscale, Nhrange, Ncrange)), []),
-            nb_labels=5, xlabel="Tc", ylabel='Nh', zlabel="Nc")
-        mlab.title("pt({:02d}) [Tc: {:04.1f}, Nh: {:4.1f}, Nc: {:4.1f}], ChiSq: {:6.2f}".format(
-            index, *nominal, chi_sq),
-            size=0.25, height=.9)
-        print(nominal)
-        nominal[0] /= Tscale
-        mlab.points3d(*([x] for x in nominal),
-            colormap='flag', mode='axes', scale_factor=0.2, line_width=4)
-        for x in ("x", "y", "z"):
-            pts = mlab.points3d(*([x] for x in nominal),
-                colormap='flag', mode='axes', scale_factor=0.2, line_width=4)
-            eval("pts.glyph.glyph_source._trfm.transform.rotate_{:s}(45)".format(x))
-        mlab.view(azimuth=45., elevation=92., distance=9.,
-            focalpoint=[10./Tscale, 20.75, 20.75])
-        # mlab.draw(figure=fig)
-        mlab.show()
-        # mlab.savefig("./emcee_imgs/gridimg1_{:02d}.png".format(index),
-        #     figure=fig, magnification=1)
-        # mlab.clf()
+
+        with open('./emcee_imgs/samples1_{:02d}.pkl'.format(index), 'rb') as pfl:
+            mc_points = pickle.load(pfl)[::10, :]
+        spk = {'color':(0.588, 0.090, 0.588), 'opacity':0.2, 'scale_factor':0.05}
+        mpu.render_grid(index, info_dict, fname=fname,
+            grids=grids, ranges=ranges, more_contours=False, Tscale=Tscale,
+            focalpoint_nominal=False, mlab=mlab, noshow=False,
+            scatter_points=mc_points, scatter_points_kwargs=spk)
     return
+
+
+def mtest_plot_params():
+    plot_kwargs = {'color': 'green', 'linewidth': 1, 'linestyle':'-', 'label':None}
+    colors = ('green', 'blue', 'orange', 'navy', 'violet', 'firebrick')
+    axes = None
+    for i in range(2, 6, 3):
+        plot_kwargs.update({'color': colors[i], 'label':f'{i}' })
+        info_dicts = tuple(mpu.gen_CHAIN_dict(soln, chain=i) for soln in (manticore_soln_2p, manticore_soln_3p))
+        axes = mpu.plot_parameters_across_filament(info_dicts, **plot_kwargs, axes=axes)
+    axes[0].legend()
+    plt.show()
+    return
+
 
 if __name__ == "__main__":
     main()
