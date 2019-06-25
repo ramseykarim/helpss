@@ -18,7 +18,7 @@ This is where I will run science code on my laptop!
 def main():
     # mtest_corner_3p_boostrap_single_pixel()
     # mtest_emcee_3p()
-    mtest_renderhidefgrids()
+    mtest_testgrid()
 
 def desktop_main():
     # mtest_emcee_3p()
