@@ -18,6 +18,7 @@ This is where I will run science code on my laptop!
 def main():
     # mtest_corner_3p_boostrap_single_pixel()
     # mtest_emcee_3p()
+    # mtest_plot_params()
     mtest_testgrid()
 
 def desktop_main():
@@ -729,24 +730,25 @@ def mtest_testgrid():
     Th, dof = info_dict['Th'][0], 1.
     Tscale = 4
     irange = [0,] + list(range(35))
-    for index in (0,):
+    for index in (2,):
         fname = "./emcee_imgs/grid1_{:02d}.pkl".format(index)
+        print("opening ", fname)
         nominal = [info_dict[x][index] for x in mpu.P_LABELS]
         for x in (1, 2):
             nominal[x] = np.log10(nominal[x])
         chi_sq = info_dict['chi_sq'][index]
-        print("Xs manticore: ", chi_sq)
+        print("-> Xs manticore: ", chi_sq)
         obs = [x[index] for x in mpu.get_obs(info_dict)]
         err = [x[index] for x in mpu.get_err(info_dict)]
         chi_sq = mpfit.goodness_of_fit_f_3p(nominal, dusts, obs, err, herschel, Th, dof)
-        print("Xs calculated:", chi_sq)
+        print("-> Xs calculated:", chi_sq)
 
         with open('./emcee_imgs/samples1_{:02d}.pkl'.format(index), 'rb') as pfl:
-            mc_points = pickle.load(pfl)[::10, :]
-        spk = {'color':(0.588, 0.090, 0.588), 'opacity':0.2, 'scale_factor':0.05}
+            mc_points = pickle.load(pfl)
+        spk = {'color':(0.588, 0.090, 0.588), 'opacity':0.05, 'scale_factor':0.02}
         mpu.render_grid(index, info_dict, fname=fname,
             grids=grids, ranges=ranges, more_contours=False, Tscale=Tscale,
-            focalpoint_nominal=False, mlab=mlab, noshow=False,
+            focalpoint_nominal=True, mlab=mlab, noshow=False,
             scatter_points=mc_points, scatter_points_kwargs=spk)
     return
 
@@ -757,7 +759,7 @@ def mtest_plot_params():
         'marker':'^'}
     colors = ('green', 'blue', 'orange', 'navy', 'violet', 'firebrick')
     axes = None
-    for i in (5,):
+    for i in (0,):
         plot_kwargs.update({'color': colors[i], 'label':f'{i}' })
         info_dicts = tuple(mpu.gen_CHAIN_dict(soln, chain=i) for soln in (manticore_soln_2p, manticore_soln_3p))
         axes = mpu.plot_parameters_across_filament(info_dicts, **plot_kwargs, axes=axes)
