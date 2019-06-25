@@ -757,11 +757,22 @@ def mtest_plot_params():
         'marker':'^'}
     colors = ('green', 'blue', 'orange', 'navy', 'violet', 'firebrick')
     axes = None
-    for i in range(2, 6, 3):
+    for i in (5,):
         plot_kwargs.update({'color': colors[i], 'label':f'{i}' })
         info_dicts = tuple(mpu.gen_CHAIN_dict(soln, chain=i) for soln in (manticore_soln_2p, manticore_soln_3p))
         axes = mpu.plot_parameters_across_filament(info_dicts, **plot_kwargs, axes=axes)
-    axes[0].legend()
+    axes['Tc 3p'].legend(loc='center right')
+    axes['Tc 3p'].set_ylim([7.5, 14.5])
+    axes['Nc 3p'].set_ylim([0, 2e22])
+    focus_on_cold = False
+    tie_N_limits = False
+    if focus_on_cold and tie_N_limits:
+        axes['Nh 3p'].set_ylim(axes['Nc 2p'].get_ylim())
+    elif tie_N_limits:
+        lim = [0, 2e21]
+        axes['Nc 2p'].set_ylim(lim)
+        axes['Nh 3p'].set_ylim(lim)
+        # axes['Nc 2p'].set_ylim(axes['Nh 3p'].get_ylim())
     plt.show()
     return
 

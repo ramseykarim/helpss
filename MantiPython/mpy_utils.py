@@ -357,16 +357,19 @@ def plot_parameters_across_filament(info_dicts,
     # plot parameters from info_dicts [i0:i0+size]
     # each parameter gets an axis; should be 6 with Xs
     # info_dicts is (2p, 3p)
-    axis_labels = list(p+' 3p' for p in P_LABELS) + list(p+' 2p' for p in P_LABELS if 'h' not in p) + ['chi_sq']
+    # axis_labels = list(p+' 3p' for p in P_LABELS) + list(p+' 2p' for p in P_LABELS if 'h' not in p) + ['chi_sq']
+    axis_labels = ['Tc 3p', 'Tc 2p', 'Nh 3p', 'chi_sq', 'Nc 3p', 'Nc 2p']
     if axes is None:
         # switch "F" to "C" for different axis stacking!
-        axes = plt.subplots(nrows=3, ncols=2, sharex=True, figsize=(12, 9))[1].flatten('F')
+        axes_list = plt.subplots(nrows=3, ncols=2, sharex=True, figsize=(12, 9))[1].flatten('F')
+        axes = {label: ax for label, ax in zip(axis_labels, axes_list)}
     if size is None:
         size = len(info_dicts[0]['Tc'])
     i1 = i0+size
     impact_parameter = range(-size//2, size//2)
     # print("+++++", len(impact_parameter), size)
-    for ax, ax_label in zip(axes, axis_labels):
+    for ax_label in axes:
+        ax = axes[ax_label]
         if len(ax_label.split()) == 1:
             # chi_sq
             chi_sqs = (idict[ax_label] for idict in info_dicts)
