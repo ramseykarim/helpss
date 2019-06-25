@@ -29,9 +29,11 @@ soln_c19h16 = "T4-absdiff-Per1J-3param-plus045-cpow-1000-0.1-1.90hpow-1000-0.1-1
 soln_c21h16 = "T4-absdiff-Per1J-3param-plus045-cpow-1000-0.1-2.10hpow-1000-0.1-1.60-bcreinit-Th16.0-Nh5E19,1E22.fits"
 soln_c21h17 = "T4-absdiff-Per1J-3param-plus045-cpow-1000-0.1-2.10hpow-1000-0.1-1.70-bcreinit-Th15.5-Nh5E19,1E22.fits"
 
+soln_5pcterr = "T4-absdiff-Per1J-3param-plus045-plus05.0pct-cpow-1000-0.1-2.10hpow-1000-0.1-1.80-bcreinit-Th15.95-Nh5E19,2E22.fits"
+soln_2p_5pcterr = "T4-absdiff-Per1J-plus045-plus05.0pct-pow-1000-0.1-1.80.fits"
 
 filament_mask_fn = per1_dir+"filament_mask_syp.fits"
-mask = fits.getdata(filament_mask_fn).astype(bool)
+# mask = fits.getdata(filament_mask_fn).astype(bool)
 
 def get_Xs(fn):
 	return mtc.load_specific_frame(fn, 9)
@@ -50,5 +52,18 @@ def plot_compare_Xs(img1, img2, label1, label2):
 	plt.title("{} is best here".format(label2))
 	plt.show()
 
-plot_compare_Xs(get_Xs(soln_c19h16), get_Xs(soln_c21h16), "cold 1.9", "hot 1.6, cold 2.1")
 
+def try_Ngt3e21_mask():
+	img_2p = mtc.load_specific_frame(soln_2p_5pcterr, 3)
+	img_3p = mtc.load_specific_frame(soln_5pcterr, 3)
+	nanmask = np.isnan(img_3p)
+	fig, axes = plt.subplots(nrows=1, ncols=2, sharex=True, sharey=True, figsize=(14, 9))
+	for img, ax, l, cutoff in zip((img_2p, img_3p), axes, ('2', '3'), (1e21, 3e21)):
+		plt.sca(ax)
+		img[nanmask] = np.nan
+		plt.imshow((img<cutoff).astype(int), origin='lower')
+		plt.colorbar()
+		plt.title(l)
+	plt.show()
+
+try_Ngt3e21_mask()

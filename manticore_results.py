@@ -657,8 +657,12 @@ def get_2pchisq_mask():
 	img = load_specific_frame(soln_2p_plus046, 5)
 	return (img > 1)
 
-def mask_2p_img(i, l):
-	original_fn = soln_2p_plus046
+def mask_2p_img(i, l, filename_override=None):
+	if filename_override is None:
+		filename = soln_2p_plus046
+	else:
+		filename = filename_override
+	original_fn = filename
 	img = load_specific_frame(original_fn, i)
 	return get_pacs_mask() & (img > l[0]) & (img < l[1])
 

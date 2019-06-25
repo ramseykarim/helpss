@@ -35,6 +35,7 @@ if __name__ == "__main__":
 
 
 def write_cold_soln():
+    raise RuntimeError("Should not rerun this function")
     bc_mask = fits.getdata(cold_mask_fn).astype(bool)
     msg1 = "Ramsey forced this to be a mask (April 20, 2019)"
     msg2 = "original: T4-absdiff-Per1J-plus045-pow-1000-0.1-1.80.fits"
@@ -61,6 +62,7 @@ def write_cold_mask():
     ii, jj = np.meshgrid(*(np.arange(x) for x in cold_mask.shape), indexing='ij')
     rectangle_mask = (ii > 300) & (ii < 500) & (jj > 350) & (jj < 550)
     cold_mask |= rectangle_mask
+    raise RuntimeError("Should not rerun this function")
     # Write the mask to a new FITS file
     phdu = fits.PrimaryHDU()
     header = fits.Header()
