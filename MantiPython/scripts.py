@@ -10,6 +10,7 @@ import mantipyfit as mpfit
 import corner
 import emcee
 import pickle
+from pathlib import Path
 
 """
 This is where I will run science code on my laptop!
@@ -19,7 +20,7 @@ def main():
     # mtest_corner_3p_boostrap_single_pixel()
     # mtest_emcee_3p()
     # mtest_plot_params()
-    mtest_plot_params()
+    mtest_rendergrid()
 
 def desktop_main():
     # mtest_emcee_3p()
@@ -678,17 +679,22 @@ def mtest_hidefgrid():
         wf.write("finished hi def grid\n")
     return
 
+"""
+######################## IMPORTANT ###########################################
+"""
 def mtest_write_manygrids():
     chainnum = 5
     Tclim, Nhlim, Nclim, dT, dN = mpu.LIMS_grid3
     Tcrange, Nhrange, Ncrange = mpu.genranges((Tclim, Nhlim, Nclim), (dT, dN))
     Tcgrid, Nhgrid, Ncgrid = mpu.gengrids((Tcrange, Nhrange, Ncrange))
+    logf = "./emcee_imgs/logf_c{:1d}.log".format(chainnum)
+    Path(logf).touch()
     print(Tcgrid.shape)
     print(Tcgrid.size)
     info_dict = mpu.gen_CHAIN_dict(manticore_soln_3p, chain=chainnum)
     for index in range(0, len(info_dict['Th']), 1):
         gofgrid = np.empty(Tcgrid.size)
-        with open("./emcee_imgs/logf.log", 'a') as wf:
+        with open(logf, 'a') as wf:
             wf.write("beginning grid {:d}..\n".format(index))
         fname = "./emcee_imgs/chain{:02d}_grid3_{:02d}.pkl".format(chainnum, index)
         mpu.grid_3d(index, info_dict, instrument=get_Herschel(),
@@ -697,9 +703,10 @@ def mtest_write_manygrids():
             Tcgrid=Tcgrid, Nhgrid=Nhgrid, Ncgrid=Ncgrid,
             empty_grid=gofgrid,
             fname_override=fname)
-        with open("./emcee_imgs/logf.log", 'a') as wf:
+        with open(logf, 'a') as wf:
             wf.write("..finished {:d}\n".format(index))
     return
+
 
 def mtest_renderhidefgrids():
     Tclim, Nhlim, Nclim, dT, dN = mpu.LIMS_grid2
@@ -721,19 +728,20 @@ def mtest_renderhidefgrids():
 """
 ######################## IMPORTANT ###########################################
 """
-def mtest_testgrid():
+def mtest_rendergrid():
+    chainnum = 0
     from mayavi import mlab
     Tclim, Nhlim, Nclim, dT, dN = mpu.LIMS_grid1
     ranges = mpu.genranges((Tclim, Nhlim, Nclim), (dT, dN))
     grids = mpu.gengrids(ranges)
-    info_dict = mpu.gen_CHAIN_dict(manticore_soln_3p)
+    info_dict = mpu.gen_CHAIN_dict(manticore_soln_3p, chain=chainnum)
     dusts = [Dust(beta=1.80), Dust(beta=2.10)]
     herschel = get_Herschel()
     Th, dof = info_dict['Th'][0], 1.
     Tscale = 4
     irange = [0,] + list(range(35))
     for index in (2,):
-        fname = "./emcee_imgs/grid1_{:02d}.pkl".format(index)
+        fname = "./emcee_imgs/chain{:02d}_grid1_{:02d}.pkl".format(chainnum, index)
         print("opening ", fname)
         nominal = [info_dict[x][index] for x in mpu.P_LABELS]
         for x in (1, 2):
@@ -745,7 +753,7 @@ def mtest_testgrid():
         chi_sq = mpfit.goodness_of_fit_f_3p(nominal, dusts, obs, err, herschel, Th, dof)
         print("-> Xs calculated:", chi_sq)
 
-        with open('./emcee_imgs/samples1_{:02d}.pkl'.format(index), 'rb') as pfl:
+        with open('./emcee_imgs/chain{:02d}_samples1_{:02d}.pkl'.format(chainnum, index), 'rb') as pfl:
             mc_points = pickle.load(pfl)
         spk = {'color':(0.588, 0.090, 0.588), 'opacity':0.05, 'scale_factor':0.02}
         mpu.render_grid(index, info_dict, fname=fname,
@@ -764,7 +772,7 @@ def mtest_plot_params():
         'marker':'^'}
     colors = ('green', 'blue', 'orange', 'navy', 'violet', 'firebrick')
     axes = None
-    for i in (0,5):
+    for i in (0,4,):
         plot_kwargs.update({'color': colors[i], 'label':f'{i}' })
         info_dicts = tuple(mpu.gen_CHAIN_dict(soln, chain=i) for soln in (manticore_soln_2p, manticore_soln_3p))
         axes = mpu.plot_parameters_across_filament(info_dicts, **plot_kwargs, axes=axes)
