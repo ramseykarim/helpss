@@ -68,7 +68,8 @@ def plot_compare_Xs(img1, img2, label1, label2):
 
 def try_Ngt3e21_mask():
 	img_2p = mtc.load_specific_frame(soln_2p_5pcterr, 3)
-	plt.imshow((img_2p > 1e21).astype(int))
+	plt.figure()
+	plt.imshow((img_2p > 2e21).astype(int), origin='lower')
 	show_plot()
 	return
 	return (img_2p > 1e21)
