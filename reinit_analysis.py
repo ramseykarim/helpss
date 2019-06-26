@@ -69,21 +69,21 @@ def plot_compare_Xs(img1, img2, label1, label2):
 def try_Ngt3e21_mask():
     img_2p = mtc.load_specific_frame(soln_2p_5pcterr, 3)
     plt.figure()
-    plt.imshow((img_2p > 2e21).astype(int), origin='lower')
+    plt.imshow(img_2p, origin='lower', vmin=0, vmax=2e21)
     show_plot()
     return
-    return (img_2p > 1e21)
-    # the rest of this is plotting / comparison
-    img_3p = mtc.load_specific_frame(soln_5pcterr, 3)
-    nanmask = np.isnan(img_3p)
-    fig, axes = plt.subplots(nrows=1, ncols=2, sharex=True, sharey=True, figsize=(14, 9))
-    for img, ax, l, cutoff in zip((img_2p, img_3p), axes, ('2', '3'), (1e21, 3e21)):
-        plt.sca(ax)
-        img[nanmask] = np.nan
-        plt.imshow((img<cutoff).astype(int), origin='lower')
-        plt.colorbar()
-        plt.title(l)
-    show_plot()
+    # return (img_2p > 1e21)
+    # # the rest of this is plotting / comparison
+    # img_3p = mtc.load_specific_frame(soln_5pcterr, 3)
+    # nanmask = np.isnan(img_3p)
+    # fig, axes = plt.subplots(nrows=1, ncols=2, sharex=True, sharey=True, figsize=(14, 9))
+    # for img, ax, l, cutoff in zip((img_2p, img_3p), axes, ('2', '3'), (1e21, 3e21)):
+    #     plt.sca(ax)
+    #     img[nanmask] = np.nan
+    #     plt.imshow((img<cutoff).astype(int), origin='lower')
+    #     plt.colorbar()
+    #     plt.title(l)
+    # show_plot()
 
-# try_Ngt3e21_mask()
-print("OK!")
+try_Ngt3e21_mask()
+# print("OK!")

@@ -33,10 +33,10 @@ elif [[ $1 == "push" ]] ; then
     echo "pushing ${filename}...";
     scp ./${filename} ${machine}:${working_directory}${filename};
     if [[ $3 != "norun" ]] ; then
-	ssh ${machine} '${python} ${working_directory}${filename}';
-	    if [[ $3 != "noplot" ]] ; then
-	        scp ${machine}:${fig_path}${fig_filename} ${local_image_dir};
-	        eog ${local_image_dir}${fig_filename};
-	    fi
-    fi
+	ssh ${machine} " ${python} ${working_directory}${filename} ";
+        if [[ $3 != "noplot" ]] ; then
+            scp ${machine}:${fig_path}${fig_filename} ${local_image_dir};
+            eog ${local_image_dir}${fig_filename};
+        fi
+	fi
 fi

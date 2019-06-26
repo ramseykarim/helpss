@@ -19,11 +19,11 @@ def main():
     # mtest_corner_3p_boostrap_single_pixel()
     # mtest_emcee_3p()
     # mtest_plot_params()
-    mtest_testgrid()
+    mtest_plot_params()
 
 def desktop_main():
     # mtest_emcee_3p()
-    mtest_plot_params()
+    mtest_write_manygrids()
 
 """
 Scripts below here
@@ -631,7 +631,7 @@ def mtest_manyemcee():
             goodnessoffit=mpfit.goodness_of_fit_f_3p,)
     print('finished')
 
-def mtest_manygrids():
+def mtest_manygrids_test():
     info_dict = mpu.gen_CHAIN_dict(manticore_soln_3p)
     dust_gen = lambda : [Dust(beta=1.80), Dust(beta=2.10)]
     Tclim, Nclim = (0, 16), (19, 22.5)
@@ -653,10 +653,7 @@ def mtest_manygrids():
     print("finished")
 
 def mtest_hidefgrid():
-    Tclim = (11.645157051086425, 13.245157051086426,)
-    Nhlim = (20.694322967529295, 20.8943229675293,)
-    Nclim = (20.65826873779297, 21.058268737792968,)
-    dT, dN = 0.01, 0.0025  # good resolution
+    Tclim, Nhlim, Nclim, dT, dN = mpu.LIMS_hidef_00
     # dT, dN = 0.3, 0.2
     Tcrange = np.arange(*Tclim, dT)
     Nhrange = np.arange(*Nhlim, dN)
@@ -681,18 +678,19 @@ def mtest_hidefgrid():
         wf.write("finished hi def grid\n")
     return
 
-def mtest_manyhidefgrids():
-    Tclim, Nhlim, Nclim, dT, dN = mpu.LIMS_grid2
+def mtest_write_manygrids():
+    chainnum = 5
+    Tclim, Nhlim, Nclim, dT, dN = mpu.LIMS_grid3
     Tcrange, Nhrange, Ncrange = mpu.genranges((Tclim, Nhlim, Nclim), (dT, dN))
     Tcgrid, Nhgrid, Ncgrid = mpu.gengrids((Tcrange, Nhrange, Ncrange))
     print(Tcgrid.shape)
     print(Tcgrid.size)
-    info_dict = mpu.gen_CHAIN_dict(manticore_soln_3p)
-    for index in range(0, 35, 4):
+    info_dict = mpu.gen_CHAIN_dict(manticore_soln_3p, chain=chainnum)
+    for index in range(0, len(info_dict['Th']), 1):
         gofgrid = np.empty(Tcgrid.size)
         with open("./emcee_imgs/logf.log", 'a') as wf:
-            wf.write("beginning hi def grid {:d}..\n".format(index))
-        fname = "./emcee_imgs/grid2_{:02d}.pkl".format(index)
+            wf.write("beginning grid {:d}..\n".format(index))
+        fname = "./emcee_imgs/chain{:02d}_grid3_{:02d}.pkl".format(chainnum, index)
         mpu.grid_3d(index, info_dict, instrument=get_Herschel(),
             dust=[Dust(beta=1.80), Dust(beta=2.10)],
             goodnessoffit=mpfit.goodness_of_fit_f_3p,
@@ -719,6 +717,10 @@ def mtest_renderhidefgrids():
             focalpoint_nominal=False, mlab=mlab)
     return
 
+
+"""
+######################## IMPORTANT ###########################################
+"""
 def mtest_testgrid():
     from mayavi import mlab
     Tclim, Nhlim, Nclim, dT, dN = mpu.LIMS_grid1
@@ -753,13 +755,16 @@ def mtest_testgrid():
     return
 
 
+"""
+######################## IMPORTANT ###########################################
+"""
 def mtest_plot_params():
     plot_kwargs = {'color': 'green',
         'linewidth': 1, 'linestyle':'-', 'label':None,
         'marker':'^'}
     colors = ('green', 'blue', 'orange', 'navy', 'violet', 'firebrick')
     axes = None
-    for i in range(6):
+    for i in (0,5):
         plot_kwargs.update({'color': colors[i], 'label':f'{i}' })
         info_dicts = tuple(mpu.gen_CHAIN_dict(soln, chain=i) for soln in (manticore_soln_2p, manticore_soln_3p))
         axes = mpu.plot_parameters_across_filament(info_dicts, **plot_kwargs, axes=axes)
@@ -767,7 +772,7 @@ def mtest_plot_params():
     axes['Tc 3p'].set_ylim([7.5, 14.5])
     axes['Nc 3p'].set_ylim([0, 2e22])
     focus_on_cold = False
-    tie_N_limits = True
+    tie_N_limits = False
     if focus_on_cold and tie_N_limits:
         axes['Nh 3p'].set_ylim(axes['Nc 2p'].get_ylim())
     elif tie_N_limits:
@@ -778,6 +783,112 @@ def mtest_plot_params():
         # axes['Nc 2p'].set_ylim(axes['Nh 3p'].get_ylim())
     plt.show()
     return
+
+
+def mtest_invenstigate_chain_errors():
+    i=0
+    info_dict = mpu.gen_CHAIN_dict(manticore_soln_3p, chain=i)
+    if 1:
+        axes = plt.subplots(nrows=3, ncols=2, sharex=True)[1].flatten('F')
+        for i, l in enumerate(('Nh', 'err160', 'obs160', 'Tc', 'Nc',)):
+            axes[i].plot(info_dict[l])
+            axes[i].set_ylabel(l)
+        plt.show()
+        return
+    else:
+        axes = plt.subplots(nrows=4, ncols=2, sharex=True)[1].flatten('F')
+        obserr = mpu.get_obs(info_dict) + mpu.get_err(info_dict)
+        labels = [str(x) for x in [160, 250, 350, 500]]
+        labels = ['o'+x for x in labels]+['e'+x for x in labels]
+        for oe, ax, l in zip(obserr, axes, labels):
+            ax.plot(oe)
+            ax.set_title(l)
+        plt.show()
+        return
+
+def mtest_carry_Th_over():
+    i=0
+    info_dict_3p = mpu.gen_CHAIN_dict(manticore_soln_3p, chain=i)
+    edge_mask = info_dict_3p['Nc'] < 2e21
+    c_edge_mask = edge_mask.copy()
+    info_dict = mpu.gen_CHAIN_dict(manticore_soln_2p, chain=i)
+    print(edge_mask)
+    # plt.plot(info_dict['Tc'])
+    newT = info_dict['Tc'].copy()
+    newT[~edge_mask] = np.nan
+    workingT = newT.copy()
+    xs = np.arange(newT.size)
+    def calcavg(xarr, pos, Tarr, mask):
+        weights = mpu.gaussian(xarr, pos, 10)[mask]
+        weighted = weights*Tarr[mask]
+        return np.sum(weighted)/np.sum(weights)
+    while not np.all(edge_mask):
+        first = 0
+        while edge_mask[first]:
+            first += 1
+        last = len(edge_mask) - 1
+        while edge_mask[last]:
+            last -= 1
+        avgT1 = calcavg(xs, first, workingT, edge_mask)
+        if first != last:
+            avgT2 = calcavg(xs, last, workingT, edge_mask)
+        workingT[first] = avgT1
+        edge_mask[first] = True
+        if first != last:
+            workingT[last] = avgT2
+            edge_mask[last] = True
+    herschel = get_Herschel()
+    dusts = [Dust(beta=1.80), Dust(beta=2.10)]
+    old_py_solution = {p: info_dict_3p[p].copy() for p in mpu.P_LABELS}
+    old_Th = info_dict_3p['Th'][0]
+    new_py_solution = {p: info_dict_3p[p].copy() for p in mpu.P_LABELS}
+    for x in xs:
+        if c_edge_mask[x]:
+            for j, p in enumerate(mpu.P_LABELS):
+                old_py_solution[p][x] = np.nan
+                new_py_solution[p][x] = np.nan
+            continue
+        Th = workingT[x]
+        obs = [o[x] for o in mpu.get_obs(info_dict)]
+        err = [o[x] for o in mpu.get_err(info_dict)]
+        old_py = mpfit.fit_source_3p(obs, err, herschel, dusts, Th=old_Th)
+        new_py = mpfit.fit_source_3p(obs, err, herschel, dusts, Th=Th)
+        for j, p in enumerate(mpu.P_LABELS):
+            oldpyj = old_py[j] if j == 0 else 10**old_py[j]
+            newpyj = new_py[j] if j == 0 else 10**new_py[j]
+            old_py_solution[p][x] = oldpyj
+            new_py_solution[p][x] = newpyj
+    plt.figure()
+    ax = plt.subplot(221)
+    ax.plot(info_dict['Tc'], '--', label='2p')
+    ax.plot(info_dict_3p['Th'], '--', label='3p')
+    ax.plot(workingT, label='new')
+    ax.legend()
+    ax.set_title('Th')
+    ax = plt.subplot(223)
+    ax.plot(info_dict['Tc'], '--', label='2p')
+    ax.plot(info_dict_3p['Tc'], '--', label='3p')
+    ax.plot(new_py_solution['Tc'], label='new')
+    ax.plot(old_py_solution['Tc'], '-.', label='old py')
+    ax.legend()
+    ax.set_title('Tc')
+    ax = plt.subplot(222)
+    # ax.plot(info_dict['Nc'], '--', label='2p')
+    ax.plot(info_dict_3p['Nh'], '--', label='3p')
+    ax.plot(new_py_solution['Nh'], label='new')
+    ax.plot(old_py_solution['Nh'], '-.', label='old py')
+    ax.legend()
+    ax.set_title('Nh')
+    ax = plt.subplot(224)
+    ax.plot(info_dict['Nc'], '--', label='2p')
+    ax.plot(info_dict_3p['Nc'], '--', label='3p')
+    ax.plot(new_py_solution['Nc'], label='new')
+    ax.plot(old_py_solution['Nc'], '-.', label='old py')
+    ax.legend()
+    ax.set_title('Nc')
+        # plt.plot(workingT, '--', color='red')
+    plt.show()
+    # info_dicts = (mpu.gen_CHAIN_dict(soln) for soln in manticore_soln_2p, manticore_soln_3p)
 
 
 if __name__ == "__main__":

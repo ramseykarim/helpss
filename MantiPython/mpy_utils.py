@@ -115,6 +115,7 @@ LIMS_hidef_00 = (
 
 LIMS_grid1 = ((0, 16.), (20, 21.5), (19, 22.5), 0.1, 0.05) # Tc,Nh,Nc,dT,dN (arange)
 LIMS_grid2 = ((4, 16.01), (20, 21.21), (19, 22.41), 0.05, 0.025) # same ^
+LIMS_grid3 = ((4, 16.), (20, 21.25), (19, 22.5), 0.1, 0.05) # Tc,Nh,Nc,dT,dN (arange)
 
 def genranges(lims, differentials):
     # lims: Tc, Nh, Nc
@@ -386,3 +387,8 @@ def plot_parameters_across_filament(info_dicts,
         ax.set_ylabel(ax_label)
     return axes
 
+
+def gaussian(x, mu, sigma):
+    return np.exp(-(((x-mu)/sigma)**2)/2.)
+
+# def fill_T(mask_N, T_array,)
