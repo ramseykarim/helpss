@@ -4,7 +4,7 @@ if __name__ == "__main__":
 	if plotting_remotely:
 		matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-SAVE_NAME = "~/Downloads/Figure_X_current.png"
+SAVE_NAME = "/home/rkarim/Downloads/Figure_X_current.png"
 import numpy as np
 from matplotlib.patches import Patch
 from astropy.io import fits

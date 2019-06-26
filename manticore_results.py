@@ -3,9 +3,9 @@ if __name__ == "__main__":
 	import matplotlib
 	if plotting_remotely:
 		matplotlib.use('Agg')
+	SAVE_NAME = "~/Downloads/Figure_X_current.png"
 import matplotlib.pyplot as plt
 import numpy as np
-SAVE_NAME = "~/Downloads/Figure_X_current.png"
 from astropy.io import fits
 from planck_mask import gen_hist_and_stats
 
