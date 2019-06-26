@@ -5,7 +5,7 @@ directory="/n/sgraraid/filaments/data/TEST4/helpss_scratch_work/"
 fig_filename="Figure_X_current.png"
 fig_path="/home/rkarim/Downloads/"
 cmd_line_args="PACS160um Per1"
-image_dir="/home/ramsey/Documents/Research/Filaments/images/"
+local_image_dir="/home/ramsey/Documents/Research/Filaments/images/"
 # python="/jupiter/rkarim/anaconda3/bin/python"
 # python="/jupiter/rkarim/anaconda3/envs/py36/bin/python"
 python="python"
@@ -34,9 +34,9 @@ elif [[ $1 == "push" ]] ; then
     scp ./${filename} ${machine}:${directory}${filename}
     if [[ $3 != "norun" ]] ; then
 	ssh ${machine} "${python} ${directory}${filename}"
-	if [[ $3 != "noplot" ]] ; then
-	    scp ${machine}:${fig_path}${fig_filename} ${image_dir}
-	    eog ${image_dir}${fig_filename};
-	fi
+	    if [[ $3 != "noplot" ]] ; then
+	        scp ${machine}:${fig_path}${fig_filename} ${local_image_dir}
+	        eog ${image_dir}${fig_filename};
+	    fi
     fi
 fi

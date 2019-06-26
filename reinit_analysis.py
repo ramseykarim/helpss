@@ -1,8 +1,8 @@
 if __name__ == "__main__":
-	plotting_remotely = True
-	import matplotlib
-	if plotting_remotely:
-		matplotlib.use('Agg')
+    plotting_remotely = True
+    import matplotlib
+    if plotting_remotely:
+        matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 SAVE_NAME = "/home/rkarim/Downloads/Figure_X_current.png"
 import numpy as np
@@ -16,10 +16,10 @@ import sys
 
 
 def show_plot():
-	if plotting_remotely:
-		plt.savefig(SAVE_NAME)
-	else:
-		plt.show()
+    if plotting_remotely:
+        plt.savefig(SAVE_NAME)
+    else:
+        plt.show()
 
 
 per1_dir = "/n/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/"
@@ -49,40 +49,40 @@ filament_mask_fn = per1_dir+"filament_mask_syp.fits"
 # mask = fits.getdata(filament_mask_fn).astype(bool)
 
 def get_Xs(fn):
-	return mtc.load_specific_frame(fn, 9)
+    return mtc.load_specific_frame(fn, 9)
 
 def plot_compare_Xs(img1, img2, label1, label2):
-	img1_better = (img1 < img2).astype(float)
-	img2_better = (img1 > img2).astype(float)
-	for x in (img1_better, img2_better):
-		x[~mask] = np.nan
-	plt.figure(figsize=(14, 9))
-	plt.subplot(121)
-	plt.imshow(img1_better, origin='lower')
-	plt.title("{} is best here".format(label1))
-	plt.subplot(122)
-	plt.imshow(img2_better, origin='lower')
-	plt.title("{} is best here".format(label2))
-	show_plot()
+    img1_better = (img1 < img2).astype(float)
+    img2_better = (img1 > img2).astype(float)
+    for x in (img1_better, img2_better):
+        x[~mask] = np.nan
+    plt.figure(figsize=(14, 9))
+    plt.subplot(121)
+    plt.imshow(img1_better, origin='lower')
+    plt.title("{} is best here".format(label1))
+    plt.subplot(122)
+    plt.imshow(img2_better, origin='lower')
+    plt.title("{} is best here".format(label2))
+    show_plot()
 
 
 def try_Ngt3e21_mask():
-	img_2p = mtc.load_specific_frame(soln_2p_5pcterr, 3)
-	plt.figure()
-	plt.imshow((img_2p > 2e21).astype(int), origin='lower')
-	show_plot()
-	return
-	return (img_2p > 1e21)
-	# the rest of this is plotting / comparison
-	img_3p = mtc.load_specific_frame(soln_5pcterr, 3)
-	nanmask = np.isnan(img_3p)
-	fig, axes = plt.subplots(nrows=1, ncols=2, sharex=True, sharey=True, figsize=(14, 9))
-	for img, ax, l, cutoff in zip((img_2p, img_3p), axes, ('2', '3'), (1e21, 3e21)):
-		plt.sca(ax)
-		img[nanmask] = np.nan
-		plt.imshow((img<cutoff).astype(int), origin='lower')
-		plt.colorbar()
-		plt.title(l)
-	show_plot()
+    img_2p = mtc.load_specific_frame(soln_2p_5pcterr, 3)
+    plt.figure()
+    plt.imshow((img_2p > 2e21).astype(int), origin='lower')
+    show_plot()
+    return
+    return (img_2p > 1e21)
+    # the rest of this is plotting / comparison
+    img_3p = mtc.load_specific_frame(soln_5pcterr, 3)
+    nanmask = np.isnan(img_3p)
+    fig, axes = plt.subplots(nrows=1, ncols=2, sharex=True, sharey=True, figsize=(14, 9))
+    for img, ax, l, cutoff in zip((img_2p, img_3p), axes, ('2', '3'), (1e21, 3e21)):
+        plt.sca(ax)
+        img[nanmask] = np.nan
+        plt.imshow((img<cutoff).astype(int), origin='lower')
+        plt.colorbar()
+        plt.title(l)
+    show_plot()
 
 try_Ngt3e21_mask()
