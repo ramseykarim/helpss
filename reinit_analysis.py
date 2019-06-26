@@ -1,5 +1,11 @@
-import numpy as np
+if __name__ == "__main__":
+	plotting_remotely = True
+	import matplotlib
+	if plotting_remotely:
+		matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+SAVE_NAME = "~/Downloads/Figure_X_current.png"
+import numpy as np
 from matplotlib.patches import Patch
 from astropy.io import fits
 from planck_mask import gen_hist_and_stats
@@ -7,6 +13,13 @@ import manticore_results as mtc
 from planck_mask import get_spire_mask
 from boolean_islands import get_mask, get_planck_mask, fill_inwards
 import sys
+
+
+def show_plot():
+	if plotting_remotely:
+		plt.savefig(SAVE_NAME)
+	else:
+		plt.show()
 
 
 per1_dir = "/n/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/"
@@ -50,11 +63,16 @@ def plot_compare_Xs(img1, img2, label1, label2):
 	plt.subplot(122)
 	plt.imshow(img2_better, origin='lower')
 	plt.title("{} is best here".format(label2))
-	plt.show()
+	show_plot()
 
 
 def try_Ngt3e21_mask():
 	img_2p = mtc.load_specific_frame(soln_2p_5pcterr, 3)
+	plt.imshow((img_2p > 1e21).astype(int))
+	show_plot()
+	return
+	return (img_2p > 1e21)
+	# the rest of this is plotting / comparison
 	img_3p = mtc.load_specific_frame(soln_5pcterr, 3)
 	nanmask = np.isnan(img_3p)
 	fig, axes = plt.subplots(nrows=1, ncols=2, sharex=True, sharey=True, figsize=(14, 9))
@@ -64,6 +82,6 @@ def try_Ngt3e21_mask():
 		plt.imshow((img<cutoff).astype(int), origin='lower')
 		plt.colorbar()
 		plt.title(l)
-	plt.show()
+	show_plot()
 
 try_Ngt3e21_mask()

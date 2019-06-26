@@ -1,10 +1,11 @@
-plotting_remotely = False
-import numpy as np
-import matplotlib
-if plotting_remotely:
-	matplotlib.use('Agg')
+if __name__ == "__main__":
+	plotting_remotely = False
+	import matplotlib
+	if plotting_remotely:
+		matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-SAVE_NAME = "Figure_X_current.png"
+import numpy as np
+SAVE_NAME = "~/Downloads/Figure_X_current.png"
 from astropy.io import fits
 from planck_mask import gen_hist_and_stats
 

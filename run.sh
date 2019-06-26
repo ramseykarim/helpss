@@ -2,12 +2,18 @@
 
 machine="rkarim@jupiter.astro.umd.edu"
 directory="/n/sgraraid/filaments/data/TEST4/helpss_scratch_work/"
-fig_filename="Figure_X_current.png"
+fig_filename="~/Downloads/Figure_X_current.png"
 cmd_line_args="PACS160um Per1"
 image_dir="/home/ramsey/Documents/Research/Filaments/images/"
 # python="/jupiter/rkarim/anaconda3/bin/python"
 # python="/jupiter/rkarim/anaconda3/envs/py36/bin/python"
 python="python"
+
+# CALL SIGNATURE:
+# $1 is either "fetch" or "push"
+# $2 is the filename (in current directory)
+# $3 is optional, either norun for just putting the file there,
+#  or noplot to avoid scp-ing the generated plot back here
 
 if [[ $1 != "fetch" ]] && [[ $1 != "push" ]] ; then
     echo "what? fetch or push";
