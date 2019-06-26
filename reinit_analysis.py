@@ -85,4 +85,5 @@ def try_Ngt3e21_mask():
         plt.title(l)
     show_plot()
 
-try_Ngt3e21_mask()
+# try_Ngt3e21_mask()
+print("OK!")

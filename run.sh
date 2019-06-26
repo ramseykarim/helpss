@@ -1,7 +1,7 @@
 #!/bin/bash
 
 machine="rkarim@jupiter.astro.umd.edu"
-directory="/n/sgraraid/filaments/data/TEST4/helpss_scratch_work/"
+working_directory="/n/sgraraid/filaments/data/TEST4/helpss_scratch_work/"
 fig_filename="Figure_X_current.png"
 fig_path="/home/rkarim/Downloads/"
 cmd_line_args="PACS160um Per1"
@@ -28,15 +28,15 @@ fi
 
 if [[ $1 == "fetch" ]] ; then
     echo "getting $filename as new_${filename} (for safety)";
-    scp ${machine}:${directory}${filename} ./new_${filename}
+    scp ${machine}:${working_directory}${filename} ./new_${filename};
 elif [[ $1 == "push" ]] ; then
     echo "pushing ${filename}...";
-    scp ./${filename} ${machine}:${directory}${filename}
+    scp ./${filename} ${machine}:${working_directory}${filename};
     if [[ $3 != "norun" ]] ; then
-	ssh ${machine} "${python} ${directory}${filename}"
+	ssh ${machine} '${python} ${working_directory}${filename}';
 	    if [[ $3 != "noplot" ]] ; then
-	        scp ${machine}:${fig_path}${fig_filename} ${local_image_dir}
-	        eog ${image_dir}${fig_filename};
+	        scp ${machine}:${fig_path}${fig_filename} ${local_image_dir};
+	        eog ${local_image_dir}${fig_filename};
 	    fi
     fi
 fi
