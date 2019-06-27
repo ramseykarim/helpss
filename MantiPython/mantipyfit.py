@@ -46,6 +46,24 @@ def fit_source_2p(observations, errors, detectors, dust, dof=2.):
     # print("RESULT:", result.message)
     return result.x
 
+
+def goodness_of_fit_f_1p(x, dust, obs, err, instr, Th, dof):
+    ITER['a'] += 1
+    # x is [Tc, Nc] (N in log10)
+    src = Greybody(Th, 10**x[0], dust)
+    # Computes reduced chi^2 given a source model and observations/errors
+    return sum((d.detect(src) - o)**2 / (e*e) for d, o, e in zip(instr, obs, err))/dof
+
+def fit_source_1p(observations, errors, detectors, dust, Th=15., dof=3.):
+    result = minimize(goodness_of_fit_f_1p,
+        x0=[20,],
+        args=(dust, observations, errors, detectors, Th, dof),
+        bounds=((18, 25),),
+        options={'maxiter': 50}
+    )
+    return result.x
+
+
 def bootstrap_errors(observations, errors, detectors, dusts,
     niter=30, fit_f=fit_source_2p, **kwargs):
     observations = np.array(observations)

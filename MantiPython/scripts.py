@@ -24,7 +24,8 @@ def main():
 
 def desktop_main():
     # mtest_emcee_3p()
-    mtest_write_manygrids()
+    # mtest_plot_params()
+    mtest_rendergrid()
 
 """
 Scripts below here
@@ -735,12 +736,14 @@ def mtest_rendergrid():
     ranges = mpu.genranges((Tclim, Nhlim, Nclim), (dT, dN))
     grids = mpu.gengrids(ranges)
     info_dict = mpu.gen_CHAIN_dict(manticore_soln_3p, chain=chainnum)
+    info_dict_2p = mpu.gen_CHAIN_dict(manticore_soln_2p, chain=chainnum)
     dusts = [Dust(beta=1.80), Dust(beta=2.10)]
     herschel = get_Herschel()
     Th, dof = info_dict['Th'][0], 1.
     Tscale = 4
-    irange = [0,] + list(range(35))
-    for index in (2,):
+    interp_Th = mpu.fill_T_chain((info_dict['Nc'] < 3e21), info_dict_2p['Tc'])
+    irange = [0,0,] + list(range(len(info_dict['Th'])))
+    for index in [31,]:
         fname = "./emcee_imgs/chain{:02d}_grid1_{:02d}.pkl".format(chainnum, index)
         print("opening ", fname)
         nominal = [info_dict[x][index] for x in mpu.P_LABELS]
@@ -752,14 +755,39 @@ def mtest_rendergrid():
         err = [x[index] for x in mpu.get_err(info_dict)]
         chi_sq = mpfit.goodness_of_fit_f_3p(nominal, dusts, obs, err, herschel, Th, dof)
         print("-> Xs calculated:", chi_sq)
-
+        savename = "./emcee_imgs/chain{:02d}_gridimg3_{:02d}.png".format(chainnum, index)
         with open('./emcee_imgs/chain{:02d}_samples1_{:02d}.pkl'.format(chainnum, index), 'rb') as pfl:
             mc_points = pickle.load(pfl)
         spk = {'color':(0.588, 0.090, 0.588), 'opacity':0.05, 'scale_factor':0.02}
-        mpu.render_grid(index, info_dict, fname=fname,
-            grids=grids, ranges=ranges, more_contours=False, Tscale=Tscale,
-            focalpoint_nominal=True, mlab=mlab, noshow=False,
+        # mc_points, spk = None, None
+        mpu.render_grid(index, info_dict, fname=fname, savename=None,
+            grids=grids, ranges=ranges, more_contours=True, Tscale=Tscale,
+            focalpoint_nominal=True, mlab=mlab, noshow=True,
             scatter_points=mc_points, scatter_points_kwargs=spk)
+        cold_dominated_result = mpfit.fit_source_2p(obs, err, herschel, dusts[1])
+        cold_dominated_result[0] /= Tscale
+        cold_dom_T, cold_dom_N = ([cold_dominated_result[j] for x in range(2)] for j in range(2))
+        mlab.plot3d(cold_dom_T, [Nhlim[0], Nhlim[1]], cold_dom_N,
+            colormap='flag', tube_radius=.05, opacity=.3,)
+        hot_dominated_result = mpfit.fit_source_1p(obs, err, herschel, dusts[0], Th=Th)
+        hot_dominated_result[0] -= np.log10(2)
+        mlab.plot3d([x/Tscale for x in Tclim], [hot_dominated_result[0] for x in range(2)], Nclim,
+            colormap='flag', tube_radius=.05, opacity=.3,)
+        # mlab.plot3d([x/Tscale for x in Tclim[::-1]], [hot_dominated_result[0] for x in range(2)], Nclim,
+        #     colormap='flag', tube_radius=.05, opacity=.3,)
+        hot_dominated_result = mpfit.fit_source_1p(obs, err, herschel, dusts[0], Th=interp_Th[index])
+        hot_dominated_result[0] -= np.log10(2)
+        mlab.plot3d([x/Tscale for x in Tclim[::-1]], [hot_dominated_result[0] for x in range(2)], Nclim,
+            colormap='flag', tube_radius=.05, opacity=.3,)
+        if info_dict['Nc'][index] < 3e21:
+            print("This point would be masked OUT and left as single-component")
+        else:
+            print("This point would be masked IN and solved for two-component")
+        if info_dict_2p['Nc'][index] < 3e21:
+            print("This point would be masked OUT via single-T N")
+        else:
+            print("This point would be masked IN via single-T N")
+        mlab.show()
     return
 
 
@@ -772,7 +800,7 @@ def mtest_plot_params():
         'marker':'^'}
     colors = ('green', 'blue', 'orange', 'navy', 'violet', 'firebrick')
     axes = None
-    for i in (0,4,):
+    for i in (5,):
         plot_kwargs.update({'color': colors[i], 'label':f'{i}' })
         info_dicts = tuple(mpu.gen_CHAIN_dict(soln, chain=i) for soln in (manticore_soln_2p, manticore_soln_3p))
         axes = mpu.plot_parameters_across_filament(info_dicts, **plot_kwargs, axes=axes)
@@ -827,7 +855,7 @@ def mtest_carry_Th_over():
     workingT = newT.copy()
     xs = np.arange(newT.size)
     def calcavg(xarr, pos, Tarr, mask):
-        weights = mpu.gaussian(xarr, pos, 10)[mask]
+        weights = mpu.gaussian_1d(xarr, pos, 10)[mask]
         weighted = weights*Tarr[mask]
         return np.sum(weighted)/np.sum(weights)
     while not np.all(edge_mask):

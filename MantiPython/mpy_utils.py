@@ -116,6 +116,7 @@ LIMS_hidef_00 = (
 LIMS_grid1 = ((0, 16.), (20, 21.5), (19, 22.5), 0.1, 0.05) # Tc,Nh,Nc,dT,dN (arange)
 LIMS_grid2 = ((4, 16.01), (20, 21.21), (19, 22.41), 0.05, 0.025) # same ^
 LIMS_grid3 = ((4, 16.), (20, 21.25), (19, 22.5), 0.1, 0.05) # Tc,Nh,Nc,dT,dN (arange)
+LIMS_grid4 = ((4, 16.), (19.5, 21.25), (20, 22.5), 0.1, 0.05) # Tc,Nh,Nc,dT,dN (arange)
 
 def genranges(lims, differentials):
     # lims: Tc, Nh, Nc
@@ -388,7 +389,39 @@ def plot_parameters_across_filament(info_dicts,
     return axes
 
 
-def gaussian(x, mu, sigma):
+def gaussian_1d(x, mu, sigma):
+    # exactly what it looks like
     return np.exp(-(((x-mu)/sigma)**2)/2.)
 
-# def fill_T(mask_N, T_array,)
+def calc_avg_1d(xarr, pos, Tarr, mask, gauss_sigma):
+    # gaussian sum over nearby "edge" pixels
+    # mask is True where "edge" (False where filament)
+    weights = gaussian_1d(xarr, pos, gauss_sigma)[mask]
+    weighted = weights*Tarr[mask]
+    return np.sum(weighted)/np.sum(weights)
+
+def fill_T_chain(mask_N, T_array, kernel_width=10):
+    # 1D Th fill designed for a single chain of pixels
+    # mask_N is the result of masking on column density
+    #   should be True when "off-filament" or "edge"
+    # T_array is the single-component T result
+    # kernel_width is std dev of gaussian used for avg
+    mask_N, T_array = mask_N.copy(), T_array.copy()
+    T_array[~mask_N] = np.nan
+    x_array = np.arange(T_array.size)
+    first, last = 0, len(T_array)-1
+    while mask_N[first]:
+        first += 1
+    while mask_N[last]:
+        last -= 1
+    while not np.all(mask_N):
+        # if first == last, then one operation is redundant but safe
+        avg_first = calc_avg_1d(x_array, first, T_array, mask_N, kernel_width)
+        avg_last = calc_avg_1d(x_array, last, T_array, mask_N, kernel_width)
+        T_array[first] = avg_first
+        T_array[last] = avg_last
+        mask_N[first] = True
+        mask_N[last] = True
+        first += 1
+        last -= 1
+    return T_array
