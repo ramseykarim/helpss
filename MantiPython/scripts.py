@@ -20,7 +20,8 @@ def main():
     # mtest_corner_3p_boostrap_single_pixel()
     # mtest_emcee_3p()
     # mtest_plot_params()
-    mtest_rendergrid()
+    mtest_carry_Th_over()
+    # mtest_rendergrid()
 
 def desktop_main():
     # mtest_emcee_3p()
@@ -726,9 +727,9 @@ def mtest_renderhidefgrids():
 ######################## IMPORTANT ###########################################
 """
 def mtest_rendergrid():
-    chainnum = 0
+    chainnum = 4
     from mayavi import mlab
-    Tclim, Nhlim, Nclim, dT, dN = mpu.LIMS_grid1
+    Tclim, Nhlim, Nclim, dT, dN = mpu.LIMS_grid3
     ranges = mpu.genranges((Tclim, Nhlim, Nclim), (dT, dN))
     grids = mpu.gengrids(ranges)
     info_dict = mpu.gen_CHAIN_dict(manticore_soln_3p, chain=chainnum)
@@ -739,8 +740,8 @@ def mtest_rendergrid():
     Tscale = 4
     interp_Th = mpu.fill_T_chain((info_dict['Nc'] < 3e21), info_dict_2p['Tc'])
     irange = [0,0,] + list(range(len(info_dict['Th'])))
-    for index in [31,]:
-        fname = "./emcee_imgs/chain{:02d}_grid1_{:02d}.pkl".format(chainnum, index)
+    for index in [5,]:
+        fname = "./emcee_imgs/chain{:02d}_grid3_{:02d}.pkl".format(chainnum, index)
         print("opening ", fname)
         nominal = [info_dict[x][index] for x in mpu.P_LABELS]
         for x in (1, 2):
@@ -752,10 +753,12 @@ def mtest_rendergrid():
         chi_sq = mpfit.goodness_of_fit_f_3p(nominal, dusts, obs, err, herschel, Th, dof)
         print("-> Xs calculated:", chi_sq)
         savename = "./emcee_imgs/chain{:02d}_gridimg3_{:02d}.png".format(chainnum, index)
-        with open('./emcee_imgs/chain{:02d}_samples1_{:02d}.pkl'.format(chainnum, index), 'rb') as pfl:
-            mc_points = pickle.load(pfl)
-        spk = {'color':(0.588, 0.090, 0.588), 'opacity':0.05, 'scale_factor':0.02}
-        # mc_points, spk = None, None
+        try:
+            with open('./emcee_imgs/chain{:02d}_samples1_{:02d}.pkl'.format(chainnum, index), 'rb') as pfl:
+                mc_points = pickle.load(pfl)
+            spk = {'color':(0.588, 0.090, 0.588), 'opacity':0.05, 'scale_factor':0.02}
+        except FileNotFoundError:
+            mc_points, spk = None, None
         mpu.render_grid(index, info_dict, fname=fname, savename=None,
             grids=grids, ranges=ranges, more_contours=True, Tscale=Tscale,
             focalpoint_nominal=True, mlab=mlab, noshow=True,
@@ -783,6 +786,7 @@ def mtest_rendergrid():
             print("This point would be masked OUT via single-T N")
         else:
             print("This point would be masked IN via single-T N")
+        mlab.view(focalpoint=[nominal[0]/Tscale]+nominal[1:])
         mlab.show()
     return
 
@@ -796,7 +800,7 @@ def mtest_plot_params():
         'marker':'^'}
     colors = ('green', 'blue', 'orange', 'navy', 'violet', 'firebrick')
     axes = None
-    for i in (5,):
+    for i in range(6):
         plot_kwargs.update({'color': colors[i], 'label':f'{i}' })
         info_dicts = tuple(mpu.gen_CHAIN_dict(soln, chain=i) for soln in (manticore_soln_2p, manticore_soln_3p))
         axes = mpu.plot_parameters_across_filament(info_dicts, **plot_kwargs, axes=axes)
@@ -841,7 +845,7 @@ def mtest_invenstigate_chain_errors():
 def mtest_carry_Th_over():
     i=0
     info_dict_3p = mpu.gen_CHAIN_dict(manticore_soln_3p, chain=i)
-    edge_mask = info_dict_3p['Nc'] < 2e21
+    edge_mask = info_dict_3p['Nc'] < 3e21
     c_edge_mask = edge_mask.copy()
     info_dict = mpu.gen_CHAIN_dict(manticore_soln_2p, chain=i)
     print(edge_mask)
