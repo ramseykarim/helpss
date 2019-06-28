@@ -24,9 +24,10 @@ def main():
     # mtest_rendergrid()
 
 def desktop_main():
-    # mtest_emcee_3p()
+    mtest_rendergrid()
+    # mtest_manyemcee()
     # mtest_plot_params()
-    mtest_carry_Th_over()
+    # mtest_carry_Th_over()
 
 """
 Scripts below here
@@ -620,14 +621,18 @@ def mtest_emcee_3p():
 def mtest_manyemcee():
     chainnum = 0
     info_dict = mpu.gen_CHAIN_dict(manticore_soln_3p, chain=chainnum)
+    info_dict_2p = mpu.gen_CHAIN_dict(manticore_soln_2p, chain=chainnum)
+    interp_Th = mpu.fill_T_chain((info_dict['Nc'] < 3e21), info_dict_2p['Tc'])
     dust_gen = lambda : [Dust(beta=1.80), Dust(beta=2.10)]
     for index in range(1):
         print(index, end=" ")
         fname = "./emcee_imgs/chain{:02d}_samples2_{:02d}.pkl".format(chainnum, index)
         mpu.emcee_3p(index, info_dict, chainnum=chainnum,
-            niter=800, burn=400, nwalkers=60,
+            niter=800, burn=100, nwalkers=60,
             instrument=get_Herschel(), dust=dust_gen(),
-            goodnessoffit=mpfit.goodness_of_fit_f_3p,)
+            goodnessoffit=mpfit.goodness_of_fit_f_3p,
+            fig_fname="no plot", samples_fname=fname,
+            Th=interp_Th[index])
     print('finished')
 
 def mtest_manygrids_test():
@@ -727,9 +732,9 @@ def mtest_renderhidefgrids():
 ######################## IMPORTANT ###########################################
 """
 def mtest_rendergrid():
-    chainnum = 4
+    chainnum = 0
     from mayavi import mlab
-    Tclim, Nhlim, Nclim, dT, dN = mpu.LIMS_grid3
+    Tclim, Nhlim, Nclim, dT, dN = mpu.LIMS_grid2
     ranges = mpu.genranges((Tclim, Nhlim, Nclim), (dT, dN))
     grids = mpu.gengrids(ranges)
     info_dict = mpu.gen_CHAIN_dict(manticore_soln_3p, chain=chainnum)
@@ -740,8 +745,8 @@ def mtest_rendergrid():
     Tscale = 4
     interp_Th = mpu.fill_T_chain((info_dict['Nc'] < 3e21), info_dict_2p['Tc'])
     irange = [0,0,] + list(range(len(info_dict['Th'])))
-    for index in [5,]:
-        fname = "./emcee_imgs/chain{:02d}_grid3_{:02d}.pkl".format(chainnum, index)
+    for index in [0,]:
+        fname = "./emcee_imgs/chain{:02d}_grid2_{:02d}.pkl".format(chainnum, index)
         print("opening ", fname)
         nominal = [info_dict[x][index] for x in mpu.P_LABELS]
         for x in (1, 2):
@@ -753,6 +758,7 @@ def mtest_rendergrid():
         chi_sq = mpfit.goodness_of_fit_f_3p(nominal, dusts, obs, err, herschel, Th, dof)
         print("-> Xs calculated:", chi_sq)
         savename = "./emcee_imgs/chain{:02d}_gridimg3_{:02d}.png".format(chainnum, index)
+        savename = None # also check KWarg
         try:
             with open('./emcee_imgs/chain{:02d}_samples1_{:02d}.pkl'.format(chainnum, index), 'rb') as pfl:
                 mc_points = pickle.load(pfl)
@@ -763,6 +769,12 @@ def mtest_rendergrid():
             grids=grids, ranges=ranges, more_contours=True, Tscale=Tscale,
             focalpoint_nominal=True, mlab=mlab, noshow=True,
             scatter_points=mc_points, scatter_points_kwargs=spk)
+        arbitrarily_complex = True # add more sample points
+        if arbitrarily_complex:
+            with open('./emcee_imgs/chain{:02d}_samples2_{:02d}.pkl'.format(chainnum, index), 'rb') as pfl:
+                mc_points = pickle.load(pfl)
+            spk = {'color':(0.419, 0.764, 0.074), 'opacity':0.05, 'scale_factor':0.02}
+            mlab.points3d(mc_points[:, 0]/Tscale, mc_points[:, 1], mc_points[:, 2], **spk)
         cold_dominated_result = mpfit.fit_source_2p(obs, err, herschel, dusts[1])
         cold_dominated_result[0] /= Tscale
         cold_dom_T, cold_dom_N = ([cold_dominated_result[j] for x in range(2)] for j in range(2))

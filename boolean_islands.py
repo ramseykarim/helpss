@@ -141,7 +141,8 @@ def fill_inwards(array, nanmask, min_size=800, n=8):
     sorted_zeros.sort(key=len, reverse=True)
     outside_space = sorted_zeros.pop(0)
     for negative_set in sorted_zeros:
-        a_copy[tuple(zip(*negative_set))] = True
+        if len(negative_set) < min_size:
+            a_copy[tuple(zip(*negative_set))] = True
     return a_copy.astype(bool)
 
 
