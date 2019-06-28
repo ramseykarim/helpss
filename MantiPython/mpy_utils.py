@@ -184,13 +184,16 @@ def histogram(x, x_lim=None):
     histx, histy = prep_arr(dedges[:-1], dedges[1:]), prep_arr(dhist, dhist)
     return histx, histy
 
-def emcee_3p(index, info_dict,
+def emcee_3p(index, info_dict, chainnum=0,
         dust=None, instrument=None, goodnessoffit=None,
-        niter=800, burn=400, nwalkers=60):
+        niter=800, burn=400, nwalkers=60,
+        fig_fname=None, samples_fname=None,
+        Th=None):
     ndim = 3
     p_labels = ('Tc', 'Nh', 'Nc')
     nominal = [info_dict[x][index] for x in p_labels]
-    Th = info_dict['Th'][index]
+    if Th is None:
+        Th = info_dict['Th'][index]
     for i in (1, 2):
         nominal[i] = np.log10(nominal[i])
     if dust is None:
@@ -232,12 +235,22 @@ def emcee_3p(index, info_dict,
         range=[(0, 16), (19.5, 21.6), (17., 23.5)],)
     fig.set_size_inches((10, 10))
     plt.title("pixel #{:02d}, n={:d}".format(index, niter*nwalkers))
-    plt.savefig("./corner1_{:02d}.pdf".format(index))
-    # with open("./emcee_imgs/samples1_{:02d}.pkl".format(index), 'wb') as pfl:
-    #     pickle.dump(samples, pfl)
+    if fig_fname != "no plot":
+        if fig_fname:
+            fname = fig_fname
+        else:
+            fname = "./emcee_imgs/chain{:02d}_corner1_{:02d}.pdf".format(chainnum, index)
+        plt.savefig(fname)
+    if samples_fname:
+        fname = samples_fname
+    else:
+        fname = "./emcee_imgs/chain{:02d}_samples1_{:02d}.pkl".format(chainnum, index)
+    with open(fname, 'wb') as pfl:
+        pickle.dump(samples, pfl)
 
 def grid_3d(index, info_dict,
-    dust=None, instrument=None, goodnessoffit=None,
+    chainnum=0, dust=None, instrument=None,
+    goodnessoffit=None,
     Tcgrid=None, Nhgrid=None, Ncgrid=None,
     empty_grid=None, fname_override=None):
     p_labels = ('Tc', 'Nh', 'Nc')
@@ -274,7 +287,7 @@ def grid_3d(index, info_dict,
     if fname_override is not None:
         fname = fname_override
     else:
-        fname = "./emcee_imgs/grid1_{:02d}.pkl".format(index)
+        fname = "./emcee_imgs/chain{:02d}_grid1_{:02d}.pkl".format(chainnum, index)
     with open(fname, 'wb') as pfl:
         pickle.dump(empty_grid, pfl)
     return empty_grid

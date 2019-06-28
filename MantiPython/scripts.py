@@ -617,19 +617,15 @@ def mtest_emcee_3p():
     return
 
 def mtest_manyemcee():
-    start, end = mpu.PIXEL_CHAIN
-    print(start, "-----", end)
-    coords = []
-    current_coord = start
-    for i in range(35):
-        coords.append(current_coord)
-        current_coord = tuple(x+1 for x in current_coord)
-    print(len(coords), "pixels")
-    info_dict = mpu.get_manticore_info(manticore_soln_3p, tuple(coords))
+    chainnum = 0
+    info_dict = mpu.gen_CHAIN_dict(manticore_soln_3p, chain=chainnum)
     dust_gen = lambda : [Dust(beta=1.80), Dust(beta=2.10)]
-    for i in range(1):
-        print(i, end=" ")
-        mpu.emcee_3p(i, info_dict, instrument=get_Herschel(), dust=dust_gen(),
+    for index in range(1):
+        print(index, end=" ")
+        fname = "./emcee_imgs/chain{:02d}_samples2_{:02d}.pkl".format(chainnum, index)
+        mpu.emcee_3p(index, info_dict, chainnum=chainnum,
+            niter=800, burn=400, nwalkers=60,
+            instrument=get_Herschel(), dust=dust_gen(),
             goodnessoffit=mpfit.goodness_of_fit_f_3p,)
     print('finished')
 
@@ -702,7 +698,7 @@ def mtest_write_manygrids():
             dust=[Dust(beta=1.80), Dust(beta=2.10)],
             goodnessoffit=mpfit.goodness_of_fit_f_3p,
             Tcgrid=Tcgrid, Nhgrid=Nhgrid, Ncgrid=Ncgrid,
-            empty_grid=gofgrid,
+            empty_grid=gofgrid, chainnum=chainnum,
             fname_override=fname)
         with open(logf, 'a') as wf:
             wf.write("..finished {:d}\n".format(index))
