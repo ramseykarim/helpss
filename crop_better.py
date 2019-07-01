@@ -34,10 +34,15 @@ c2_coord = SkyCoord("3:36:23.014 +31:13:04.54", frame=FK5, unit=(u.hourangle, u.
 # this is newer (April 5, 2019) and is most of the Per1 region
 c3_coord = SkyCoord("3:30:18.406 +30:53:09.30", frame=FK5, unit=(u.hourangle, u.deg))
 # this is also newer, smaller box to try to run the CMB manticore
-c4_coord = SkyCoord("3:30:26.584 +29:58:56.26", frame=FK5, unit=(u.hourangle, u.deg))
-c5_coord = SkyCoord("3:33:06.408 +31:08:03.71", frame=FK5, unit=(u.hourangle, u.deg))
+c4_coord = SkyCoord("3:30:26.584 +29:58:56.26", frame=FK5, unit=(u.hourangle, u.deg)) # 0
+c5_coord = SkyCoord("3:33:06.408 +31:08:03.71", frame=FK5, unit=(u.hourangle, u.deg)) # 1
+# even newer (July 1, 2019), these two highlight some low-Tc/hi-Nc noise holdouts
+# this one is just above B1
+c6_coord = SkyCoord("3:33:53.142 +31:19:30.83", frame=FK5, unit=(u.hourangle, u.deg)) # 6
+# this is right at NGC 1333
+c7_coord = SkyCoord("3:29:09.435 +31:13:13.51", frame=FK5, unit=(u.hourangle, u.deg)) # 7
 
-c_coords = {0: (c4_coord, 0.83, 0.58), 1: (c5_coord, 0.55, 0.84)}
+c_coords = {6: (c6_coord, 0.14, 0.16), 7: (c7_coord, 0.12, 0.17)}
 
 # Generator expressions for FITS image names
 fn_2paramfit = "%sT4-absdiff-%s-4bandLErr.fits" % (dir_stub, field_stub)
@@ -77,9 +82,9 @@ def crop_original(coords, source_filename, target_filename, cropped_width=3):
 	h.update(d_c.wcs.to_header())
 	fits.writeto(target_filename,
 		     d_c.data, h, overwrite=True)
-
 	print("")
 	# we have run the above function only on Per1 SPIRE 350 (Dec 12, 2018 2:49 pm)
+	# this is definitely no longer true and hasn't been for a while (Jul 1, 2019 2:16 pm)
 
 # =====================================================
 # Now regrid Planck to those images
