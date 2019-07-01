@@ -67,22 +67,26 @@ def plot_compare_Xs(img1, img2, label1, label2):
 
 
 def try_Ngt3e21_mask(frame):
-    n_2p = mtc.load_specific_frame(soln_2p_5pcterr, 3)
-    n_3p = mtc.load_specific_frame(soln_5pcterr, 3)
-    T_3p = mtc.load_specific_frame(soln_5pcterr, 1)
+    # n_2p = mtc.load_specific_frame(soln_2p_5pcterr, 3)
+    # n_3p = mtc.load_specific_frame(soln_5pcterr, 3)
+    # T_3p = mtc.load_specific_frame(soln_5pcterr, 1)
+    n_2p = fits.getdata("../"+soln_2p_5pcterr, 3)
+    n_3p = fits.getdata("../"+soln_5pcterr, 3)
+    T_3p = fits.getdata("../"+soln_5pcterr, 1)
+
     # img_3p = mtc.load_specific_frame(soln_5pcterr, frame)
-    mask = (n_3p > 3e21)
-    T_3p[~mask] = np.nan
-    n_3p[~mask] = np.nan
+    # mask = (n_3p > 3e21)
+    # T_3p[~mask] = np.nan
+    # n_3p[~mask] = np.nan
     plt.figure()
-    plt.subplot(121)
-    plt.imshow(T_3p, origin='lower', vmin=7, vmax=14)
+    # plt.subplot(121)
+    plt.imshow(n_2p, origin='lower', vmin=2e21, vmax=8e21)
     plt.colorbar()
-    plt.title("Tc")
-    plt.subplot(122)
-    plt.imshow(n_3p, origin='lower', vmin=3e21, vmax=1e22)
-    plt.colorbar()
-    plt.title("Nc")
+    # plt.title("Tc")
+    # # plt.subplot(122)
+    # plt.imshow(n_3p, origin='lower', vmin=3e21, vmax=1e22)
+    # plt.colorbar()
+    # plt.title("Nc")
     show_plot()
     return
     # return (img_2p > 1e21)
