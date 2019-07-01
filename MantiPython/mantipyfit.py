@@ -54,6 +54,7 @@ def goodness_of_fit_f_1p(x, dust, obs, err, instr, Th, dof):
     # Computes reduced chi^2 given a source model and observations/errors
     return sum((d.detect(src) - o)**2 / (e*e) for d, o, e in zip(instr, obs, err))/dof
 
+
 def fit_source_1p(observations, errors, detectors, dust, Th=15., dof=3.):
     result = minimize(goodness_of_fit_f_1p,
         x0=[20,],
@@ -61,6 +62,23 @@ def fit_source_1p(observations, errors, detectors, dust, Th=15., dof=3.):
         bounds=((18, 25),),
         options={'maxiter': 50}
     )
+    return result.x
+
+
+def gen_goodness_of_fit_f(obs, err, instr, src_fn, dof):
+    # src_fn should be preset with kwargs such as Th, Nh, whatever, AND DUST
+    # src_fn should expect some X vector of params and return a Greybody
+    def goodness_of_fit_f(x):
+        src = src_fn(x)
+        return sum((d.detect(src) - o)**2. / (e*e) for d, o, e in zip(instr, obs, err))/dof
+    return goodness_of_fit_f
+
+
+def fit_source(observations, errors, detectors, src_fn, initial_guess, bounds, dof=1.):
+    # see src_fn requirements in gen_goodness_of_fit_f
+    goodness_of_fit_f = gen_goodness_of_fit_f(observations, errors, detectors, dof, src_fn)
+    result = minimize(goodness_of_fit_f,
+        x0=initial_guess, bounds=bounds, options={'maxiter': 50})
     return result.x
 
 
@@ -78,3 +96,17 @@ def bootstrap_errors(observations, errors, detectors, dusts,
     fitted_param_sets = list(results)
     param_uncertainties = [np.std(x) for x in zip(*results)]
     return fitted_param_sets, param_uncertainties
+
+
+def fit_full_image(observation_maps, error_maps, detectors,
+    src_fn, initial_guess, bounds, dof=1.):
+    # maps should be sequences of numpy.ndarrays
+    n_pixels = observation_maps[0].size
+    img_shape = observation_maps[0].shape
+    obs_seq = zip(*(o.flat for o in observation_maps))
+    err_seq = zip(*(e.flat for e in error_maps))
+    result_seq = np.full(obs_seq[0].size, )
+    for obs, err in zip(obs_seq, err_seq):
+        pass # implement
+    return
+

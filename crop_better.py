@@ -173,10 +173,10 @@ if __name__ == '__main__':
 	img2 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/SPIRE250um-image-remapped-conv"
 	img3 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/SPIRE350um-image-remapped-conv"
 	img4 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/SPIRE500um-image-remapped-conv"
-	err1 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/PACS160um-error-remapped-conv"
-	err2 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/SPIRE250um-error-remapped-conv"
-	err3 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/SPIRE350um-error-remapped-conv"
-	err4 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/SPIRE500um-error-remapped-conv"
+	err1 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/PACS160um-plus05.0pct-error-remapped-conv"
+	err2 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/SPIRE250um-plus05.0pct-error-remapped-conv"
+	err3 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/SPIRE350um-plus05.0pct-error-remapped-conv"
+	err4 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/SPIRE500um-plus05.0pct-error-remapped-conv"
 	all_files = [img1, img2, img3, img4, err1, err2, err3, err4]
 	for f in all_files:
 		for i in c_coords:

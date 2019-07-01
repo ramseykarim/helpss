@@ -160,3 +160,26 @@ def gen_beam_function(band_stub):
 
 def get_Herschel():
     return [Instrument(H_stubs[wl]) for wl in H_WL]
+
+def gen_data_filename(band_stub, imgerr, stub_override=None, stub_append=""):
+    if stub_override is None:
+        stub_override = "remapped-conv"
+    else:
+        stub_override = stub_override.strip('-')
+    if stub_append:
+        stub_append = stub_append.strip('-')
+        stub_append = '-'+stub_append
+    if imgerr[0] == 'i' and band_stub[0] == 'P':
+        stub_prepend = "-plus045"
+    elif imgerr[0] == 'e':
+        stub_prepend = "-plus05.0pct"
+    else:
+        stub_prepend = ""
+    return f"{band_stub}{stub_prepend}-{imgerr}-{stub_override}{stub_append}.fits"
+
+def gen_data_filenames(**kwargs):
+    imgerr_stubs = ("image", "error")
+    return_list = []
+    for band_stub in bandpass_centers:
+        return_list.append(tuple(gen_data_filename(band_stub, ie, **kwargs) for ie in imgerr_stubs))
+    return tuple(return_list)

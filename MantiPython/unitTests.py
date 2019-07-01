@@ -445,10 +445,21 @@ def test_threading():
     print("1", list1)
     print("2", list2)
 
+from Instrument import gen_data_filenames
+from mantipyfit import fit_full_image
+def test_full_image_fit():
+    print("ONLY GOOD ON DESKTOP")
+    per_path = "/n/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/"
+    for pair in gen_data_filenames(stub_append="-crop6"):
+        print(pair[0], " | ", pair[1])
+    fit_full_image(None, None, None, None, None, None)
+    return
+
+
 all_tests = tests_dust + tests_greybody + tests_instrument + tests_manticore
 
 if __name__ == "__main__":
-    test_get_CHAIN()
+    test_full_image_fit()
     # for f in all_tests:
     #     try:
     #         f()

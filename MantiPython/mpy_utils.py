@@ -184,6 +184,7 @@ def histogram(x, x_lim=None):
     histx, histy = prep_arr(dedges[:-1], dedges[1:]), prep_arr(dhist, dhist)
     return histx, histy
 
+
 def emcee_3p(index, info_dict, chainnum=0,
         dust=None, instrument=None, goodnessoffit=None,
         niter=800, burn=400, nwalkers=60,
