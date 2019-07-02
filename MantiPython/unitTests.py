@@ -447,12 +447,41 @@ def test_threading():
 
 from Instrument import gen_data_filenames
 from mantipyfit import fit_full_image
+from mpy_utils import WCS, save_fits
 def test_full_image_fit():
     print("ONLY GOOD ON DESKTOP")
+    raise RuntimeWarning("THIS HAS ALREADY BEEN RUN!")
+    """
+    This worked, and for -crop6, found almost exactly the same solutions
+    for all but 3 of nearly 1500 pixels
+    """
     per_path = "/n/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/"
+    obs_maps, err_maps = [], []
+    w = None
     for pair in gen_data_filenames(stub_append="-crop6"):
-        print(pair[0], " | ", pair[1])
-    fit_full_image(None, None, None, None, None, None)
+        if w is None:
+            w = WCS(getdata(per_path+pair[0], header=True)[1])
+        obs_maps.append(getdata(per_path+pair[0]))
+        err_maps.append(getdata(per_path+pair[1]))
+    ## PLOT DATA
+    # axes = plt.subplots(ncols=2, nrows=4, sharex=True, sharey=True)[1]
+    # for i, o, e in zip(range(4), obs_maps, err_maps):
+    #     axes[i, 0].imshow(o, origin='lower')
+    #     axes[i, 1].imshow(e, origin='lower')
+    # plt.show()
+    ##
+    # 2-param fit; x is [T, log10(N)]
+    dust = Dust(beta=1.80)
+    src_fn = lambda x: Greybody(x[0], 10**x[1], dust)
+    x0 = [10, 20]
+    bounds = ((0, None), (18, 25))
+    herschel = get_Herschel()
+    solution = fit_full_image(obs_maps, err_maps, herschel, src_fn, x0, bounds, dof=2.)
+    # This works; now write up the "save fits" bit from "prepare_bc" & "spectralidx_vs_temp"
+    write_data_dict = {("T", "K"): solution[0], ("NH2", "cm-2"): 10**solution[1]}
+    save_name = per_path+"mantipyfit_save_test.fits"
+    comment = "this is a test"
+    save_fits(write_data_dict, w, save_name, comment=comment)
     return
 
 

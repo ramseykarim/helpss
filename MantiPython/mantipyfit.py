@@ -76,7 +76,7 @@ def gen_goodness_of_fit_f(obs, err, instr, src_fn, dof):
 
 def fit_source(observations, errors, detectors, src_fn, initial_guess, bounds, dof=1.):
     # see src_fn requirements in gen_goodness_of_fit_f
-    goodness_of_fit_f = gen_goodness_of_fit_f(observations, errors, detectors, dof, src_fn)
+    goodness_of_fit_f = gen_goodness_of_fit_f(observations, errors, detectors, src_fn, dof)
     result = minimize(goodness_of_fit_f,
         x0=initial_guess, bounds=bounds, options={'maxiter': 50})
     return result.x
@@ -103,10 +103,11 @@ def fit_full_image(observation_maps, error_maps, detectors,
     # maps should be sequences of numpy.ndarrays
     n_pixels = observation_maps[0].size
     img_shape = observation_maps[0].shape
+    n_params = len(initial_guess)
     obs_seq = zip(*(o.flat for o in observation_maps))
     err_seq = zip(*(e.flat for e in error_maps))
-    result_seq = np.full(obs_seq[0].size, )
-    for obs, err in zip(obs_seq, err_seq):
-        pass # implement
-    return
+    result_seq = np.full((n_params, n_pixels), np.nan)
+    for i, obs, err in zip(range(n_pixels), obs_seq, err_seq):
+        result_seq[:, i] = fit_source(obs, err, detectors, src_fn, initial_guess, bounds, dof=dof)
+    return result_seq.reshape((n_params, *img_shape))
 

@@ -1,5 +1,7 @@
 import numpy as np
 from astropy.io import fits
+from astropy.wcs import WCS
+from datetime import datetime, timezone
 import scipy.constants as cst
 from collections import deque
 import emcee
@@ -174,6 +176,33 @@ def get_manticore_info(source, *args):
     if isinstance(source, str):
         hdul.close()
     return return_dict
+
+
+def save_fits(data, wcs_info, save_name, comment=""):
+    # data should be a dictionary
+    #   from tuple (string extension_name, string units)
+    #   to ndarray data_array
+    phdu = fits.PrimaryHDU()
+    header = fits.Header()
+    header.update(wcs_info.to_header())
+    header['COMMENT'] = comment
+    header['CREATOR'] = (f"Ramsey: {str(__file__)}", "FITS file creator")
+    header['OBJECT'] = ("per_04_nom", "Target name")
+    header['DATE'] = (datetime.now(timezone.utc).astimezone().isoformat(), "File creation date")
+    hdu_list = []
+    for ext_name, ext_units in data:
+        ihdu = fits.ImageHDU(data[(ext_name, ext_units)], header=header)
+        ihdu.header['EXTNAME'] = ext_name
+        ihdu.header['BUNIT'] = (ext_units, 'Data unit')
+        hdu_list.append(ihdu)
+    hdu_list.insert(0, phdu)
+    hdul = fits.HDUList(hdu_list)
+    try:
+        hdul.writeto(save_name)
+        print(f"WRITTEN to {save_name}")
+    except OSError:
+        hdul.writeto(save_name, overwrite=True)
+        print(f"WRITTEN TO {save_name} (overwriting existing)")
 
 
 prep_arr = lambda a, b: np.array([a, b]).T.flatten()
