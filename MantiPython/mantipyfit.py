@@ -99,7 +99,7 @@ def bootstrap_errors(observations, errors, detectors, dusts,
 
 
 def fit_full_image(observation_maps, error_maps, detectors,
-    src_fn, initial_guess, bounds, dof=1.):
+    src_fn, initial_guess, bounds, dof=1., chisq=False):
     # maps should be sequences of numpy.ndarrays
     n_pixels = observation_maps[0].size
     img_shape = observation_maps[0].shape
@@ -107,7 +107,14 @@ def fit_full_image(observation_maps, error_maps, detectors,
     obs_seq = zip(*(o.flat for o in observation_maps))
     err_seq = zip(*(e.flat for e in error_maps))
     result_seq = np.full((n_params, n_pixels), np.nan)
+    if chisq:
+        chisq_seq = np.full((n_pixels,), np.nan)
     for i, obs, err in zip(range(n_pixels), obs_seq, err_seq):
         result_seq[:, i] = fit_source(obs, err, detectors, src_fn, initial_guess, bounds, dof=dof)
-    return result_seq.reshape((n_params, *img_shape))
+        if chisq:
+            chisq_seq[i] = gen_goodness_of_fit_f(obs, err, detectors, src_fn, dof)(result_seq[:, i])
+    if chisq:
+        return result_seq.reshape((n_params, *img_shape)), chisq_seq.reshape(img_shape)
+    else:
+        return result_seq.reshape((n_params, *img_shape))
 

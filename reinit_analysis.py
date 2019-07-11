@@ -48,6 +48,17 @@ soln_2p_5pcterr = "T4-absdiff-Per1J-plus045-plus05.0pct-pow-1000-0.1-1.80.fits"
 filament_mask_fn = per1_dir+"filament_mask_syp.fits"
 # mask = fits.getdata(filament_mask_fn).astype(bool)
 
+soln_16grid = "T4-absdiff-Per1J-3param-plus045-plus05.0pct-cpow-1000-0.1-2.10hpow-1000-0.1-1.80-1.2.4-Th15.95-Nh5E19,2E22.fits"
+
+# ALL CROP 6
+manticore_nominal_2p = "T4-absdiff-Per1J-plus045-plus05.0pct-pow-1000-0.1-1.80-crop6.fits"
+manticore_nominal_3p = "T4-absdiff-Per1J-3param-plus045-plus05.0pct-cpow-1000-0.1-2.10hpow-1000-0.1-1.80-bcreinit-Th15.95-Nh5E19,2E22-crop6.fits"
+mpy_nominal_2p = "mantipyfit_save_test.fits" # T N
+mpy_nominal_3p = "mantipyfit_save_test_3p.fits" # Tc Nh Nc
+mpy_boundary_soln = "mantipyfit_boundary_solutions-crop6.fits" # Tc2 Nc2 Xs2 Nh1 Xs1 Tc3 Nh3 Nc3 Xs3
+
+
+
 def get_Xs(fn):
     return mtc.load_specific_frame(fn, 9)
 
@@ -67,13 +78,14 @@ def plot_compare_Xs(img1, img2, label1, label2):
 
 
 def try_Ngt3e21_mask(frame):
-    # n_2p = mtc.load_specific_frame(soln_2p_5pcterr, 3)
-    # n_3p = mtc.load_specific_frame(soln_5pcterr, 3)
-    # T_3p = mtc.load_specific_frame(soln_5pcterr, 1)
-    n_2p = fits.getdata("../"+soln_2p_5pcterr, 3)
-    n_3p = fits.getdata("../"+soln_5pcterr, 3)
-    T_3p = fits.getdata("../"+soln_5pcterr, 1)
-
+    try:
+        n_2p = mtc.load_specific_frame(soln_2p_5pcterr, 3)
+        n_3p = mtc.load_specific_frame(soln_5pcterr, 3)
+        T_3p = mtc.load_specific_frame(soln_5pcterr, 1)
+    except:
+        n_2p = fits.getdata("../"+soln_2p_5pcterr, 3)
+        n_3p = fits.getdata("../"+soln_5pcterr, 3)
+        T_3p = fits.getdata("../"+soln_5pcterr, 1)
     # img_3p = mtc.load_specific_frame(soln_5pcterr, frame)
     # mask = (n_3p > 3e21)
     # T_3p[~mask] = np.nan
@@ -102,5 +114,120 @@ def try_Ngt3e21_mask(frame):
     #     plt.title(l)
     # show_plot()
 
-try_Ngt3e21_mask(3)
-# print("OK!")
+
+"""
+COMPARING MANTICORE TO MANTIPYTHON (NO TRICKS, JUST NOMINAL)
+"""
+
+def compare_2p_N(): # very identical
+    # manticore 2p vs mantipy nominal 2p
+    mtN = np.log10(fits.getdata(per1_dir+manticore_nominal_2p, 3))
+    mpN = np.log10(fits.getdata(per1_dir+mpy_nominal_2p, 2))
+    plt.imshow(mtN-mpN, origin='lower')
+    plt.title("MANTICORE minus PYTHON: 2param N")
+    plt.colorbar()
+    plt.show()
+
+def compare_3p_Nc(): # significantly different in off-filament (close on filament)
+    # manticore 3p vs mantipy nominal 3p
+    mtN = (fits.getdata(per1_dir+manticore_nominal_3p, 3))
+    mpN = (fits.getdata(per1_dir+mpy_nominal_3p, 3))
+    plt.imshow(np.abs(mtN-mpN), origin='lower', vmin=0, vmax=5e21)
+    plt.title("MANTICORE minus PYTHON: 3param Nc")
+    plt.colorbar()
+    plt.show()
+
+def compare_3p_Nh(): # different in off-filament (close on filament)
+    # manticore 3p vs mantipy nominal 3p
+    mtN = (fits.getdata(per1_dir+manticore_nominal_3p, 7))
+    mpN = (fits.getdata(per1_dir+mpy_nominal_3p, 2))
+    plt.imshow(np.abs(mtN-mpN), origin='lower', vmin=0, vmax=5e20)
+    plt.title("MANTICORE minus PYTHON: 3param Nh")
+    plt.colorbar()
+    plt.show()
+
+"""
+COMPARING MANTIPYTHON with tricks
+"""
+
+def compare_3p_Nc_7lim(): # these are identical
+    # compare 3p Nc between T>0 and T>7
+    mpN = fits.getdata(per1_dir+mpy_nominal_3p, 3)
+    mp7N = fits.getdata(per1_dir+mpy_boundary_soln, 8)
+    plt.imshow(np.abs(mpN-mp7N), origin='lower', vmin=0, vmax=5e21)
+    plt.title("T>0 minus T>7: 3param Nc")
+    plt.colorbar()
+    plt.show()
+
+def compare_3p_Nh_7lim(): # these are identical
+    # compare 3p Nh between T>0 and T>7
+    mpN = fits.getdata(per1_dir+mpy_nominal_3p, 2)
+    mp7N = fits.getdata(per1_dir+mpy_boundary_soln, 7)
+    plt.imshow(np.abs(mpN-mp7N), origin='lower', vmin=0, vmax=5e20)
+    plt.title("T>0 minus T>7: 3param Nh")
+    plt.colorbar()
+    plt.show()
+
+"""
+COMPARING MANTICORE WITH BOUNDARY SOLUTIONS
+"""
+
+def compare_Nh_3p_1p():
+    mtN = fits.getdata(per1_dir+manticore_nominal_3p, 7)*2 # two layers!
+    mpN = fits.getdata(per1_dir+mpy_boundary_soln, 4)
+    plt.imshow((mpN-mtN)/mpN, origin='lower')
+    plt.title("1p minus 3p: Nh at T=15.95")
+    plt.colorbar()
+    plt.show()
+
+
+def mask_Tc_on_Nhboundary():
+    mtN = fits.getdata(per1_dir+manticore_nominal_3p, 7)*2 # two layers!
+    mpN = fits.getdata(per1_dir+mpy_boundary_soln, 4)
+    mask = ((mpN-mtN)/mpN > 0.1)
+    mtT = fits.getdata(per1_dir+manticore_nominal_3p, 1)
+    mtT[~mask] = np.nan
+    plt.imshow(mtT, origin='lower')
+    plt.title("manticore Tc 3p")
+    plt.colorbar()
+    plt.show()
+
+
+"""
+UNCERTAINTY MASK
+based on idea that, as 3p Nh approaches 1p Nh, cold component uncertainties should blow out
+specificially as compared to their values
+"""
+def mask_err_sidebysideplot():
+    with fits.open(per1_dir+soln_5pcterr) as hdul:
+        Te = hdul[2].data / hdul[1].data
+        Ne = hdul[4].data / hdul[3].data
+    # with fits.open(per1_dir + soln_5pcterr) as hdul:
+    #     T = hdul[1].data
+    #     N = hdul[3].data
+    # with fits.open(per1_dir + soln_16grid) as hdul:
+    #     Te = hdul[2].data / T
+    #     Ne = hdul[4].data / N
+    fig, axes = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True)
+    axes[0, 0].imshow(Te, origin='lower', vmin=0, vmax=1)
+    axes[0, 0].set_title("Terr")
+    axes[0, 1].imshow(Ne, origin='lower', vmin=0, vmax=1)
+    axes[0, 1].set_title("Nerr")
+    axes[1, 0].imshow(mtc.load_specific_frame(soln_5pcterr, 1), origin='lower', vmin=5, vmax=16)
+    axes[1, 0].set_title("Tc")    
+    plt.show()
+
+def mask_err():
+    with fits.open(per1_dir+manticore_nominal_3p) as hdul:
+        Te = hdul[2].data / hdul[1].data
+        Ne = hdul[4].data / hdul[3].data
+    T = mtc.load_specific_frame(manticore_nominal_3p, 1)
+    elim = 1
+    mask = (Te < elim) & (Ne < elim)
+    T[~mask] = np.nan
+    fig, axes = plt.subplots(nrows=1, ncols=2)
+    axes[0].imshow(T, origin='lower', vmin=5, vmax=16)
+    axes[1].imshow(fits.getdata(per1_dir+mpy_boundary_soln, 6), origin='lower', vmin=5, vmax=16)
+    plt.show()
+
+mask_err()

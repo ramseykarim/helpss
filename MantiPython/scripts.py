@@ -5,7 +5,7 @@ import scipy.constants as cst
 import mpy_utils as mpu
 from Dust import Dust
 from Greybody import Greybody
-from Instrument import Instrument, get_Herschel
+from Instrument import Instrument, get_Herschel, gen_data_filenames
 import mantipyfit as mpfit
 import corner
 import emcee
@@ -24,15 +24,16 @@ def main():
     # mtest_rendergrid()
 
 def desktop_main():
-    mtest_rendergrid()
+    # mtest_rendergrid()
     # mtest_manyemcee()
     # mtest_plot_params()
-    # mtest_carry_Th_over()
+    mtest_write_boundary_solutions()
 
 """
 Scripts below here
 """
 from computer_config import manticore_soln_2p, manticore_soln_3p, mask_fn
+import computer_config as cconf
 
 def mtest_2pixel_scatter():
     pij1 = 478-1, 376-1 # looks ok
@@ -939,5 +940,63 @@ def mtest_carry_Th_over():
     # info_dicts = (mpu.gen_CHAIN_dict(soln) for soln in manticore_soln_2p, manticore_soln_3p)
 
 
+def mtest_write_boundary_solutions():
+    print("ONLY GOOD ON DESKTOP")
+    # raise RuntimeWarning("THIS HAS ALREADY BEEN RUN!")
+    cropnum = "-crop6"
+    obs_maps, err_maps = [], []
+    w = None
+    for pair in gen_data_filenames(stub_append=cropnum):
+        if w is None:
+            w = mpu.WCS(mpu.fits.getdata(cconf.per1+pair[0], header=True)[1])
+        obs_maps.append(mpu.fits.getdata(cconf.per1+pair[0]))
+        err_maps.append(mpu.fits.getdata(cconf.per1+pair[1]))
+    # standard fixed parameters
+    dusth = Dust(beta=1.80)
+    dustc = Dust(beta=2.10)
+    Th = 15.95
+    Tc0, Nh0, Nc0 = 10, 20, 22
+    Tbound, Nbound = (0, None), (18, 25)
+    herschel = get_Herschel()
+    first_args = (obs_maps, err_maps, herschel)
+    # 2 parameter COLD BETA (2.10); x = (Tc, Nc)
+    src_fn = lambda x: Greybody(x[0], 10**x[1], dustc)
+    solution, chisq = mpfit.fit_full_image(*first_args, src_fn,
+        [Tc0, Nc0], (Tbound, Nbound), dof=2., chisq=True)
+    write_data_dict = {
+        ("Tc (2)", "K"): solution[0],
+        ("Nc (2)", "cm-2"): 10**solution[1],
+        ("chisq (2)", "Xs/dof"): chisq,
+    }
+    # now 1 parameter HOT BETA, fixed Th=15.95; x = (Nh,)
+    src_fn = lambda x: Greybody(Th, 10**x[0], dusth)
+    solution, chisq = mpfit.fit_full_image(*first_args, src_fn,
+        [Nh0,], (Nbound,), dof=3., chisq=True)
+    write_data_dict.update({
+        ("Nh (1)", "cm-2"): 10**solution[0],
+        ("chisq (1)", "Xs/dof"): chisq,
+    })
+    # now 3 parameter, fixed Th; x = (Tc, Nh, Nc); Tc>7
+    src_fn = lambda x: Greybody([Th, x[0]], [10**x[1], 10**x[2]], [dusth, dustc])
+    solution, chisq = mpfit.fit_full_image(*first_args, src_fn,
+        [Tc0, Nh0, Nc0], ((7, None), Nbound, Nbound), dof=1., chisq=True)
+    write_data_dict.update({
+        ("Tc (3)", "K"): solution[0],
+        ("Nh (3)", "cm-2"): 10**solution[1],
+        ("Nc (3)", "cm-2"): 10**solution[2],
+        ("chisq (3)", "Xs/dof"): chisq,
+    })
+    save_name = cconf.per1 + f"mantipyfit_boundary_solutions{cropnum}.fits"
+    comment = "(2) beta=2.10; (1) beta=1.80, Th=15.95; (3) Tc>7"
+    for k, v in write_data_dict.items():
+        print(k, '-->', v.shape)
+    try:
+        mpu.save_fits(write_data_dict, w, save_name, comment=comment)
+        print("worked!")
+        return 0
+    except:
+        print("whoops, somethin happened")
+        return write_data_dict
+
 if __name__ == "__main__":
-    main()
+    wdd = mtest_write_boundary_solutions()
