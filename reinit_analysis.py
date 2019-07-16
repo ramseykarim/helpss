@@ -22,7 +22,12 @@ def show_plot():
         plt.show()
 
 
+per1_dir = "../"
 per1_dir = "/n/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/"
+
+
+
+
 soln_DL = "T4-absdiff-Per1J-3param-plus045-cDL3hpow-1000-0.1-1.80-bcreinit-Nh5E19,2E22.fits"
 soln_OH = "T4-absdiff-Per1J-3param-plus045-cOH5hpow-1000-0.1-1.80-bcreinit-Nh5E19,2E22.fits"
 soln_15 = "T4-absdiff-Per1J-3param-plus045-cpow-1000-0.1-1.50hpow-1000-0.1-1.80-bcreinit-Nh1E20.fits"
@@ -60,7 +65,7 @@ mpy_boundary_soln = "mantipyfit_boundary_solutions-crop6.fits" # Tc2 Nc2 Xs2 Nh1
 
 
 def get_Xs(fn):
-    return mtc.load_specific_frame(fn, 9)
+    return fits.getdata(per1_dir+fn, 9)
 
 def plot_compare_Xs(img1, img2, label1, label2):
     img1_better = (img1 < img2).astype(float)
@@ -78,15 +83,10 @@ def plot_compare_Xs(img1, img2, label1, label2):
 
 
 def try_Ngt3e21_mask(frame):
-    try:
-        n_2p = mtc.load_specific_frame(soln_2p_5pcterr, 3)
-        n_3p = mtc.load_specific_frame(soln_5pcterr, 3)
-        T_3p = mtc.load_specific_frame(soln_5pcterr, 1)
-    except:
-        n_2p = fits.getdata("../"+soln_2p_5pcterr, 3)
-        n_3p = fits.getdata("../"+soln_5pcterr, 3)
-        T_3p = fits.getdata("../"+soln_5pcterr, 1)
-    # img_3p = mtc.load_specific_frame(soln_5pcterr, frame)
+    n_2p = fits.getdata(per1_dir+soln_2p_5pcterr, 3)
+    n_3p = fits.getdata(per1_dir+soln_5pcterr, 3)
+    T_3p = fits.getdata(per1_dir+soln_5pcterr, 1)
+    # img_3p = fits.getdata(per1_dir+soln_5pcterr, frame)
     # mask = (n_3p > 3e21)
     # T_3p[~mask] = np.nan
     # n_3p[~mask] = np.nan
@@ -103,7 +103,7 @@ def try_Ngt3e21_mask(frame):
     return
     # return (img_2p > 1e21)
     # # the rest of this is plotting / comparison
-    # img_3p = mtc.load_specific_frame(soln_5pcterr, 3)
+    # img_3p = fits.getdata(per1_dir+soln_5pcterr, 3)
     # nanmask = np.isnan(img_3p)
     # fig, axes = plt.subplots(nrows=1, ncols=2, sharex=True, sharey=True, figsize=(14, 9))
     # for img, ax, l, cutoff in zip((img_2p, img_3p), axes, ('2', '3'), (1e21, 3e21)):
@@ -213,21 +213,35 @@ def mask_err_sidebysideplot():
     axes[0, 0].set_title("Terr")
     axes[0, 1].imshow(Ne, origin='lower', vmin=0, vmax=1)
     axes[0, 1].set_title("Nerr")
-    axes[1, 0].imshow(mtc.load_specific_frame(soln_5pcterr, 1), origin='lower', vmin=5, vmax=16)
+    axes[1, 0].imshow(fits.getdata(per1_dir+soln_5pcterr, 1), origin='lower', vmin=5, vmax=16)
     axes[1, 0].set_title("Tc")    
+    plt.show()
+
+def mask_Nherr_plot():
+    with fits.open(per1_dir+manticore_nominal_3p) as hdul:
+        Te = hdul[2].data / hdul[1].data
+        Ne = hdul[4].data / hdul[3].data
+        Nhe = hdul[8].data / hdul[7].data
+    T = fits.getdata(per1_dir+manticore_nominal_3p, 1)
+    fig, axes = plt.subplots(nrows=1, ncols=2, sharex=True, sharey=True)
+    p = axes[0].imshow(T, origin='lower', vmin=5, vmax=16)
+    fig.colorbar(p, ax=axes[0])
+    p = axes[1].imshow(Nhe, origin='lower', vmin=0, vmax=1)
+    fig.colorbar(p, ax=axes[1])
     plt.show()
 
 def mask_err():
     with fits.open(per1_dir+manticore_nominal_3p) as hdul:
         Te = hdul[2].data / hdul[1].data
         Ne = hdul[4].data / hdul[3].data
-    T = mtc.load_specific_frame(manticore_nominal_3p, 1)
-    elim = 1
-    mask = (Te < elim) & (Ne < elim)
-    T[~mask] = np.nan
+        Nhe = hdul[8].data / hdul[7].data
+    T = fits.getdata(per1_dir+manticore_nominal_3p, 1)
+    mask = (Te > .2) | (Ne > .4)
+    mask = Nhe < .05
+    T[mask] = np.nan
     fig, axes = plt.subplots(nrows=1, ncols=2)
     axes[0].imshow(T, origin='lower', vmin=5, vmax=16)
     axes[1].imshow(fits.getdata(per1_dir+mpy_boundary_soln, 6), origin='lower', vmin=5, vmax=16)
     plt.show()
 
-mask_err()
+mask_Nherr_plot()

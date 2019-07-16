@@ -17,17 +17,15 @@ This is where I will run science code on my laptop!
 """
 
 def main():
-    # mtest_corner_3p_boostrap_single_pixel()
-    # mtest_emcee_3p()
     # mtest_plot_params()
     mtest_carry_Th_over()
     # mtest_rendergrid()
 
 def desktop_main():
-    # mtest_rendergrid()
     # mtest_manyemcee()
     # mtest_plot_params()
-    mtest_write_boundary_solutions()
+    # mtest_write_boundary_solutions()
+    mtest_boostrap()
 
 """
 Scripts below here
@@ -1052,6 +1050,91 @@ def mtest_init_conditions_sensitivity():
     except:
         print("whoops, somethin happened")
         return write_data_dict
+
+
+def mtest_boostrap():
+    pixel_index = 6
+    niter = 10
+    good, name, coords, color = mpu.PIXELS_OF_INTEREST[pixel_index]
+    # mpu.gen_CHAIN_dict(manticore_soln_3p, chain=i)
+    info_dict = mpu.get_manticore_info(manticore_soln_3p, *coords)
+
+    herschel = get_Herschel()
+    dusts = [Dust(beta=1.80), Dust(beta=2.10)]
+    nu_range = np.exp(np.linspace(np.log(cst.c/(1500*1e-6)), np.log(cst.c/(50*1e-6)), 100))
+    wl_range = 1e6*cst.c/nu_range
+
+    obs, err = mpu.get_obs(info_dict), mpu.get_err(info_dict)
+    #### HALF PACS ERROR
+    # err[0] = err[0]/2
+    Th = info_dict['Th']
+    Tscale = 4
+    point_size = 0.2
+    lims = mpu.LIMS_grid4[0:3]
+    lims = sum((list(x) for x in lims), [])
+    ext = [x if i > 1 else x/Tscale for i, x in enumerate(lims)]
+    nominal = [info_dict[x] for x in ("Tc", "Nh", "Nc") if x in info_dict]
+    for x in (1, 2):
+        nominal[x] = np.log10(nominal[x]) 
+    Tcf, Nhf, Ncf = mpfit.fit_source_3p(obs, err, herschel, dusts, Th=Th)
+    print("manticore  >> Tc:{:5.2f}, Nh:{:.2E}, Nc:{:.2E}".format(*nominal))
+    print("mantipyfit >> Tc:{:5.2f}, Nh:{:.2E}, Nc:{:.2E}".format(Tcf, 10**Nhf, 10**Ncf))
+    p_sets, p_errs = mpfit.bootstrap_errors(obs, err, herschel,
+        dusts, niter=niter, fit_f=mpfit.fit_source_3p, dof=1, Th=Th)
+    p_sets = np.array(p_sets) # rows are realizations, cols are Tc logNh logNc
+    p_sets[:, 1:] = np.log10(p_sets[:, 1:])
+    from mayavi import mlab
+    fig = mlab.figure(figure="main", size=(1200, 1050))
+    mlab.points3d(p_sets[:, 0]/Tscale, p_sets[:, 1], p_sets[:, 2], color=(0.219, 0.588, 0.192),
+        opacity=0.8, scale_factor=0.2)
+    nominal[0] /= Tscale
+    mlab.points3d(*([x] for x in nominal),
+        colormap='flag', mode='axes', scale_factor=point_size, line_width=4)
+    for x in ("x", "y", "z"):
+        pts = mlab.points3d(*([x] for x in nominal),
+            colormap='flag', mode='axes', scale_factor=point_size, line_width=4)
+        eval("pts.glyph.glyph_source._trfm.transform.rotate_{:s}(45)".format(x))
+    mlab.axes(ranges=lims,
+        extent=ext,
+        nb_labels=5, xlabel="Tc", ylabel='Nh', zlabel="Nc")
+    focalpoint = [10./Tscale, 20.75, 20.75]
+    mlab.view(azimuth=45., elevation=92., distance=9.,
+        focalpoint=focalpoint)
+    mlab.show()
+    return
+    plt.figure(figsize=(10, 7))
+    for s in p_sets:
+        cloudf = Greybody([Th, s[0]], s[1:], dusts)
+        plt.plot(wl_range, cloudf.radiate(nu_range), '-', alpha=0.1,
+            color='grey')
+    cloud = Greybody([Th, nominal[0]], nominal[1:], dusts)
+    plt.plot(wl_range, cloud.radiate(nu_range), '-', color=color,
+        label=str(cloud))
+    cloudf = Greybody([Th, Tcf], [10**Nhf, 10**Ncf], dusts)
+    plt.plot(wl_range, cloudf.radiate(nu_range), '--', color=color,
+        label=str(cloudf))
+    plt.errorbar(mpu.H_WL, obs, yerr=err, fmt='.', capsize=6,
+        color=color, label=name)
+    plt.xscale('log')
+    plt.legend()
+    plt.show()
+
+    params = list(zip(*p_sets))
+    Tcs, Nhs, Ncs = map(np.array, params)
+    Nhs, Ncs = np.log10(Nhs), np.log10(Ncs)
+    nominal[1] = np.log10(nominal[1])
+    nominal[2] = np.log10(nominal[2])
+    print("log:")
+    print("nominal>> Tc:{:5.2f}, Nh:{:5.2f}, Nc:{:5.2f}".format(*nominal))
+    print("fitted >> Tc:{:5.2f}, Nh:{:5.2f}, Nc:{:5.2f}".format(Tcf, Nhf, Ncf))
+    labels = ['Tc', 'log(Nh)', 'log(Nc)']
+    params = np.stack([Tcs, Nhs, Ncs], axis=1)
+    fig = corner.corner(params, labels=labels, truths=nominal,
+        range=[(3, 16), (20, 21.6), (21.5, 23.5)])
+    fig.set_size_inches((10, 10))
+    plt.title("BOOTSTRAP (n={:d})".format(niter))
+    plt.show()
+    return
 
 
 if __name__ == "__main__":

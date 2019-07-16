@@ -90,6 +90,7 @@ def bootstrap_errors(observations, errors, detectors, dusts,
     for i in range(niter):
         obs_perturbed = np.random.normal(loc=observations,
             scale=errors)
+        print(obs_perturbed)
         current_result = fit_f(obs_perturbed, errors, detectors, dusts, **kwargs)
         current_result[1:] = [10**x for x in current_result[1:]]
         results.append(current_result)
