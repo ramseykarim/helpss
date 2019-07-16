@@ -81,6 +81,7 @@ PIXEL_CHAINS = (
     ((381-1, 671-1), (347-1, 705-1)), # 3 just southeast of L1448 (diag SW)
     ((365-1, 512-1), (390-1, 537-1)), # 4 close to L1455 (diag NW)
     ((389-1, 427-1), (416-1, 454-1)), # 5 near L1455, up towards B1 (diag NW)
+    ((642-1, 234-1), (677-1, 234-1)), # 6 past B1, towards B1-E (vertical N)
 )
 
 def gen_CHAIN_dict(source, chain=0):
@@ -89,21 +90,29 @@ def gen_CHAIN_dict(source, chain=0):
     if (end[0] > start[0]) and (end[1] > start[1]):
         # diagonal cut, heading northwest
         coord_fn = lambda coord: tuple(x+1 for x in coord)
+        length = end[0] - start[0] + 1
     elif (end[1] > start[1]) and end[0] == start[0]:
         # horizontal cut, heading west
         coord_fn = lambda coord: (coord[0], coord[1]+1)
+        length = end[1] - start[1] + 1
     elif (end[1] > start[1]) and (end[0] < start[0]):
         # diagonal cut, heading southwest
         coord_fn = lambda coord: (coord[0]-1, coord[1]+1)
+        length = end[1] - start[1] + 1
+    elif (end[0] > start[0]) and (end[1] == start[1]):
+        # vertical cut, heading north
+        coord_fn = lambda coord: (coord[0]+1, coord[1])
+        length = end[0] - start[0] + 1
     else:
-        # vertical?
+        # ill-defined
         raise RuntimeError("gen_CHAIN_dict not prepared for this!")
     coords = []
     current_coord = start
     count, max_count = 0, 200 # none of these is 200 elements long
-    while current_coord[1] <= end[1]:
+    while count < length:
         coords.append(current_coord)
         current_coord = coord_fn(current_coord)
+        count += 1
         if count > max_count:
             raise RuntimeError("max interations reached")
     assert all(x==y for x, y in zip(coords[-1], end))
@@ -219,6 +228,8 @@ def emcee_3p(index, info_dict, chainnum=0,
         niter=800, burn=400, nwalkers=60,
         fig_fname=None, samples_fname=None,
         Th=None):
+    # to avoid saving png image, fig_name="no plot"
+    # to avoid saving sample array, samples_name="no save"
     ndim = 3
     p_labels = ('Tc', 'Nh', 'Nc')
     nominal = [info_dict[x][index] for x in p_labels]
@@ -240,7 +251,7 @@ def emcee_3p(index, info_dict, chainnum=0,
     err = [x[index] for x in get_err(info_dict)]
     dof = 1.
     arguments = (dust, obs, err, instrument, Th, dof)
-    Tlo, Thi, Nlo, Nhi = 0., Th, 17., 26.
+    Tlo, Thi, Nlo, Nhi = 0., Th, 18., 25.
     Tcenter, Ncenter = 10, 21
     def lnposterior(x):
         T, N1, N2 = x
@@ -261,22 +272,24 @@ def emcee_3p(index, info_dict, chainnum=0,
     sampler = emcee.EnsembleSampler(nwalkers, ndim, lnposterior)
     sampler.run_mcmc(p0, niter+burn)
     samples = sampler.chain[:, burn:, :].reshape((-1, ndim))
-    fig = corner.corner(samples, labels=p_labels, truths=nominal,
-        range=[(0, 16), (19.5, 21.6), (17., 23.5)],)
-    fig.set_size_inches((10, 10))
-    plt.title("pixel #{:02d}, n={:d}".format(index, niter*nwalkers))
     if fig_fname != "no plot":
+        fig = corner.corner(samples, labels=p_labels, truths=nominal,
+            range=[(0, 16), (19.5, 21.6), (17., 23.5)],)
+        fig.set_size_inches((10, 10))
+        plt.title("pixel #{:02d}, n={:d}".format(index, niter*nwalkers))
         if fig_fname:
             fname = fig_fname
         else:
             fname = "./emcee_imgs/chain{:02d}_corner1_{:02d}.pdf".format(chainnum, index)
         plt.savefig(fname)
-    if samples_fname:
-        fname = samples_fname
-    else:
-        fname = "./emcee_imgs/chain{:02d}_samples1_{:02d}.pkl".format(chainnum, index)
-    with open(fname, 'wb') as pfl:
-        pickle.dump(samples, pfl)
+    if samples_fname != "no save":
+        if samples_fname:
+            fname = samples_fname
+        else:
+            fname = "./emcee_imgs/chain{:02d}_samples1_{:02d}.pkl".format(chainnum, index)
+        with open(fname, 'wb') as pfl:
+            pickle.dump(samples, pfl)
+    return samples
 
 def grid_3d(index, info_dict,
     chainnum=0, dust=None, instrument=None,
@@ -321,6 +334,47 @@ def grid_3d(index, info_dict,
     with open(fname, 'wb') as pfl:
         pickle.dump(empty_grid, pfl)
     return empty_grid
+
+
+def render_points(points, nominal=None, Tscale=4, focalpoint_nominal=False,
+    color=(0.219, 0.588, 0.192), opacity=0.4, scale_factor=0.1,
+    mlab=None, noshow=False, figure="main",
+    fig_size=(1200, 1050), nominal_point_size=0.2,
+    lims=None, ext=None, ax_labels=None, focalpoint=[10., 20.75, 20.75]):
+    # assumes the points are Tc logNh logNc within reasonable bounds
+    focalpoint[0] /= Tscale
+    if lims is None:
+        lims = [0, 20, 18, 23, 18, 23]
+    if ext is None:
+        ext = [x if i > 1 else x/Tscale for i, x in enumerate(lims)]
+    if ax_labels is None:
+        ax_labels = ("Tc", "Nh", "Nc")
+    fig = mlab.figure(figure=figure, size=fig_size)
+    mlab.points3d(points[:, 0]/Tscale, points[:, 1], points[:, 2],
+        color=color, opacity=opacity, scale_factor=scale_factor,)
+    if nominal is not None:
+        if mlab is None:
+            raise RuntimeError("Please pass the mlab module as kwarg 'mlab'")
+        if nominal[2] > 100:
+            nominal = [nominal[0]/Tscale, np.log10(nominal[1]), np.log10(nominal[2])]
+        else:
+            nominal = [nominal[0]/Tscale, *nominal[1:]]
+        if focalpoint_nominal:
+            focalpoint = nominal
+        mlab.points3d(*([x] for x in nominal),
+            colormap='flag', mode='axes', scale_factor=nominal_point_size, line_width=4)
+        for x in ("x", "y", "z"):
+            pts = mlab.points3d(*([x] for x in nominal),
+                colormap='flag', mode='axes', scale_factor=nominal_point_size, line_width=4)
+            eval("pts.glyph.glyph_source._trfm.transform.rotate_{:s}(45)".format(x))
+    mlab.axes(ranges=lims, extent=ext,
+        nb_labels=5, xlabel=ax_labels[0],
+        ylabel=ax_labels[1], zlabel=ax_labels[2])
+    mlab.view(azimuth=45., elevation=92., distance=9.,
+        focalpoint=focalpoint)
+    if not noshow:
+        mlab.show()
+    return fig
 
 
 def render_grid(index, info_dict, fname=None, savename=None,

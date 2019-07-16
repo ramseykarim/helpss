@@ -237,11 +237,36 @@ def mask_err():
         Nhe = hdul[8].data / hdul[7].data
     T = fits.getdata(per1_dir+manticore_nominal_3p, 1)
     mask = (Te > .2) | (Ne > .4)
-    mask = Nhe < .05
     T[mask] = np.nan
     fig, axes = plt.subplots(nrows=1, ncols=2)
     axes[0].imshow(T, origin='lower', vmin=5, vmax=16)
-    axes[1].imshow(fits.getdata(per1_dir+mpy_boundary_soln, 6), origin='lower', vmin=5, vmax=16)
+    axes[1].imshow(fits.getdata(per1_dir+manticore_nominal_3p, 1), origin='lower', vmin=5, vmax=16)
     plt.show()
 
-mask_Nherr_plot()
+def mask_ratio_Ns():
+    with fits.open(per1_dir+manticore_nominal_3p) as hdul:
+        Tc = hdul[1].data
+        Nc = hdul[3].data
+        Nh = hdul[7].data
+    with fits.open(per1_dir+manticore_nominal_2p) as hdul:
+        T1 = hdul[1].data
+        N1 = hdul[3].data
+    mask = (N1 < 3e21) | (Nc < 3e21)
+    Tc[mask] = np.nan
+    fig, axes = plt.subplots(nrows=2, ncols=3, sharex=True, sharey=True)
+    axes[0, 0].imshow(Tc, origin='lower', vmin=5, vmax=16)
+    axes[0, 0].set_title("Tc masked")
+    axes[0, 1].imshow(fits.getdata(per1_dir+manticore_nominal_3p, 1), origin='lower', vmin=5, vmax=16)
+    axes[0, 1].set_title("Tc")
+    axes[1, 0].imshow(Nc, origin='lower', vmin=0, vmax=1e22)
+    axes[1, 0].set_title("Nc")
+    axes[1, 1].imshow(N1, origin='lower', vmin=0, vmax=1e22)
+    axes[1, 1].set_title("N")
+    axes[1, 2].imshow(T1, origin='lower', vmin=14, vmax=17)
+    axes[1, 2].set_title("T")
+    axes[0, 2].imshow(Nh, origin='lower', vmin=0, vmax=3e21)
+    axes[0, 2].set_title("Nh")
+    plt.show()
+
+
+mask_ratio_Ns()

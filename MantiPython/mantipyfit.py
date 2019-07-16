@@ -2,6 +2,7 @@ import numpy as np
 import mpy_utils as mpu
 from Greybody import Greybody
 from scipy.optimize import minimize
+import sys
 
 
 ITER = {'a': 0}
@@ -83,17 +84,21 @@ def fit_source(observations, errors, detectors, src_fn, initial_guess, bounds, d
 
 
 def bootstrap_errors(observations, errors, detectors, dusts,
-    niter=30, fit_f=fit_source_2p, **kwargs):
+    niter=30, fit_f=fit_source_2p, verbose=False, **kwargs):
     observations = np.array(observations)
     errors = np.array(errors)
     results = mpu.deque()
     for i in range(niter):
         obs_perturbed = np.random.normal(loc=observations,
             scale=errors)
-        print(obs_perturbed)
+        if verbose:
+            sys.stdout.write(f"{i+1}/{niter}..\r")
+            sys.stdout.flush()
         current_result = fit_f(obs_perturbed, errors, detectors, dusts, **kwargs)
         current_result[1:] = [10**x for x in current_result[1:]]
         results.append(current_result)
+    if verbose:
+        print()
     fitted_param_sets = list(results)
     param_uncertainties = [np.std(x) for x in zip(*results)]
     return fitted_param_sets, param_uncertainties
