@@ -942,7 +942,7 @@ def mtest_carry_Th_over():
 
 def mtest_write_boundary_solutions():
     print("ONLY GOOD ON DESKTOP")
-    # raise RuntimeWarning("THIS HAS ALREADY BEEN RUN!")
+    raise RuntimeWarning("THIS HAS ALREADY BEEN RUN!")
     cropnum = "-crop6"
     obs_maps, err_maps = [], []
     w = None
@@ -998,5 +998,61 @@ def mtest_write_boundary_solutions():
         print("whoops, somethin happened")
         return write_data_dict
 
+
+def mtest_init_conditions_sensitivity():
+    print("ONLY GOOD ON DESKTOP")
+    # raise RuntimeWarning("THIS HAS ALREADY BEEN RUN!")
+    cropnum = "-crop6"
+    obs_maps, err_maps = [], []
+    write_data_dict = dict()
+    w = None
+    for pair in gen_data_filenames(stub_append=cropnum):
+        if w is None:
+            w = mpu.WCS(mpu.fits.getdata(cconf.per1+pair[0], header=True)[1])
+        obs_maps.append(mpu.fits.getdata(cconf.per1+pair[0]))
+        err_maps.append(mpu.fits.getdata(cconf.per1+pair[1]))
+    # standard fixed parameters
+    dusth = Dust(beta=1.80)
+    dustc = Dust(beta=2.10)
+    Th = 15.95
+    Tc0, Nh0, Nc0 = 10, 20, 22
+    Tbound, Nbound = (0, None), (18, 25)
+    herschel = get_Herschel()
+    first_args = (obs_maps, err_maps, herschel)
+    # 3 parameter, fixed Th; x = (Tc, Nh, Nc); Tc>7
+    # lowT/highN init conditions
+    src_fn = lambda x: Greybody([Th, x[0]], [10**x[1], 10**x[2]], [dusth, dustc])
+    solution, chisq = mpfit.fit_full_image(*first_args, src_fn,
+        [8, 21.5, 22], ((0, None), Nbound, Nbound), dof=1., chisq=True)
+    write_data_dict.update({
+        ("A) Tc (init 8)", "K"): solution[0],
+        ("A) Nh (init 3E21)", "cm-2"): 10**solution[1],
+        ("A) Nc (init 1E22)", "cm-2"): 10**solution[2],
+        ("A) chisq (T8)", "Xs/dof"): chisq,
+    })
+    # 3 parameter, fixed Th; x = (Tc, Nh, Nc); Tc>7
+    # highT/lowN init conditions
+    src_fn = lambda x: Greybody([Th, x[0]], [10**x[1], 10**x[2]], [dusth, dustc])
+    solution, chisq = mpfit.fit_full_image(*first_args, src_fn,
+        [14, 20.5, 20], ((0, None), Nbound, Nbound), dof=1., chisq=True)
+    write_data_dict.update({
+        ("B) Tc (init 14)", "K"): solution[0],
+        ("B) Nh (init 3E20)", "cm-2"): 10**solution[1],
+        ("B) Nc (init 1E20)", "cm-2"): 10**solution[2],
+        ("B) chisq (T14)", "Xs/dof"): chisq,
+    })
+    save_name = cconf.per1 + f"mantipyfit_init_conditions_reasonable{cropnum}.fits"
+    comment = "beta_c=2.10; beta_h=1.80; Th=15.95"
+    for k, v in write_data_dict.items():
+        print(k, '-->', v.shape)
+    try:
+        mpu.save_fits(write_data_dict, w, save_name, comment=comment)
+        print("worked!")
+        return 0
+    except:
+        print("whoops, somethin happened")
+        return write_data_dict
+
+
 if __name__ == "__main__":
-    wdd = mtest_write_boundary_solutions()
+    wdd = mtest_init_conditions_sensitivity()
