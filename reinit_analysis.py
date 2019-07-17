@@ -268,5 +268,83 @@ def mask_ratio_Ns():
     axes[0, 2].set_title("Nh")
     plt.show()
 
+def histogram2d(x, y, mask=None, ax=None, **plot_kwargs):
+    if ax is None:
+        ax = plt.subplot(111)
+    if mask is not None:
+        x = x[mask]
+        y = y[mask]
+    x = x.ravel()
+    y = y.ravel()
+    ax.plot(x, y, marker='.', linestyle='none', **plot_kwargs)
 
-mask_ratio_Ns()
+def XsvN():
+    with fits.open(per1_dir+soln_2p_5pcterr) as hdul:
+        T = hdul[1].data
+        N = np.log10(hdul[3].data)
+        Xs = hdul[5].data
+    mask = ~np.isnan(fits.getdata(per1_dir+soln_5pcterr, 1))
+    # return T, Xs, mask
+    histogram2d(N, Xs, mask, color='k', alpha=0.1)
+    plt.xlabel("N")
+    plt.ylabel("Xs")
+    plt.xlim([20.8, 22.5])
+    plt.ylim([0, 1])
+    plt.title("Xs vs N (2p)")
+    plt.show()
+
+
+def N2vs3():
+    with fits.open(per1_dir+soln_2p_5pcterr) as hdul:
+        N = hdul[3].data
+    with fits.open(per1_dir+soln_5pcterr) as hdul:
+        Nc = hdul[3].data
+        Nh = hdul[7].data * 2
+    mask = ~np.isnan(Nc) & (Nc > Nh) #& (0.7 > Nh)
+    Ntot = Nc+Nh
+    Nc /= N
+    Nh /= N
+    Ntot /= N
+    # mask &= (N > 10**21.38)
+    ax = plt.subplot(111)
+    N = np.log10(N)
+    args = dict(mask=mask, ax=ax, alpha=0.01,  markersize=4,)
+    histogram2d(N, Nc, **args, color='blue', label="Nc")
+    histogram2d(N, Nh, **args, color='red', label="Nh")
+    histogram2d(N, Ntot, **args, color='k', label="Ntot")
+    plt.legend()
+    # plt.yscale('log')
+    plt.xlabel("N (2p)")
+    plt.ylabel("N (3p)")
+    plt.xlim([20.8, 22.5])
+    plt.ylim([0, 2])
+    # plt.ylim([1e-2, 1e2])
+    plt.title("N vs N (2p)")
+    plt.show()
+
+def weird():
+    with fits.open(per1_dir+soln_2p_5pcterr) as hdul:
+        N = hdul[3].data
+    with fits.open(per1_dir+soln_5pcterr) as hdul:
+        Tc = hdul[1].data
+        Nc = hdul[3].data
+        Nh = hdul[7].data * 2
+    mask = ~np.isnan(Nc) & (Nc > Nh) & (Nh/N < 0.7)
+    Ntot = Nc+Nh
+    Nc /= N
+    Nh /= N
+    Ntot /= N
+    # mask &= (N > 10**21.38)
+    fig, axes = plt.subplots(ncols=2, nrows=1, sharex=True, sharey=True, figsize=(16, 9))
+    toplot = Tc.copy()
+    toplot[~mask] = np.nan
+    p = axes[0].imshow(toplot, origin='lower', vmin=5, vmax=16)
+    fig.colorbar(p, ax=axes[0])
+    p = axes[1].imshow(Nc*N, origin='lower', vmin=0, vmax=5e21)
+    fig.colorbar(p, ax=axes[1])
+    plt.tight_layout()
+    plt.show()
+
+
+N2vs3()
+# weird()
