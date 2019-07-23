@@ -53,13 +53,26 @@ def prepare_convolution(w, beam_small, beam_large, data_shape):
 	return convolution_beam
 
 
-def convolve_properly(image, kernel):
-	# Need to preserve NaNs
-	nanmask = np.isnan(image)
-	image[nanmask] = 0
+def convolve_helper(image, kernel):
+	# assumes no nans, just the convolution
 	ft = np.fft.fft2(image)*np.fft.fft2(kernel)
 	result = np.fft.ifft2(ft)
-	result = np.real(np.fft.fftshift(result))
+	return np.real(np.fft.fftshift(result))
+
+
+def convolve_properly(image, kernel):
+	# Need to preserve NaNs
+	# as of July 22, 2019, corrects for edge effects, normalization from NaNs
+	image = image.copy()
+	nanmask = np.isnan(image)
+	image[nanmask] = 0.
+	result = convolve_helper(image, kernel)
+	# account for edge effects, normalization
+	image[~nanmask] = 1.
+	norm = convolve_helper(image, kernel)
+	image[:] = 1.
+	norm /= convolve_helper(image, kernel)
+	result /= norm
 	result[nanmask] = np.nan
 	return result
 
