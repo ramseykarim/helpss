@@ -22,8 +22,8 @@ def show_plot():
         plt.show()
 
 
-per1_dir = "../"
 per1_dir = "/n/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/"
+per1_dir = "../"
 
 
 
@@ -49,6 +49,7 @@ soln_c21h17 = "T4-absdiff-Per1J-3param-plus045-cpow-1000-0.1-2.10hpow-1000-0.1-1
 
 soln_5pcterr = "T4-absdiff-Per1J-3param-plus045-plus05.0pct-cpow-1000-0.1-2.10hpow-1000-0.1-1.80-bcreinit-Th15.95-Nh5E19,2E22.fits"
 soln_2p_5pcterr = "T4-absdiff-Per1J-plus045-plus05.0pct-pow-1000-0.1-1.80.fits"
+soln_2p = "T4-absdiff-Per1J-plus045-pow-1000-0.1-1.80.fits"
 
 filament_mask_fn = per1_dir+"filament_mask_syp.fits"
 # mask = fits.getdata(filament_mask_fn).astype(bool)
@@ -214,7 +215,7 @@ def mask_err_sidebysideplot():
     axes[0, 1].imshow(Ne, origin='lower', vmin=0, vmax=1)
     axes[0, 1].set_title("Nerr")
     axes[1, 0].imshow(fits.getdata(per1_dir+soln_5pcterr, 1), origin='lower', vmin=5, vmax=16)
-    axes[1, 0].set_title("Tc")    
+    axes[1, 0].set_title("Tc")
     plt.show()
 
 def mask_Nherr_plot():
@@ -289,7 +290,7 @@ def XsvN():
     plt.xlabel("N")
     plt.ylabel("Xs")
     plt.xlim([20.8, 22.5])
-    plt.ylim([0, 1])
+    plt.ylim([0, 5])
     plt.title("Xs vs N (2p)")
     plt.show()
 
@@ -322,7 +323,7 @@ def N2vs3():
     plt.title("N vs N (2p)")
     plt.show()
 
-def weird():
+def new_mask():
     with fits.open(per1_dir+soln_2p_5pcterr) as hdul:
         N = hdul[3].data
     with fits.open(per1_dir+soln_5pcterr) as hdul:
@@ -346,5 +347,25 @@ def weird():
     plt.show()
 
 
+def flux_mask():
+    with fits.open(per1_dir+soln_5pcterr) as hdul:
+        Tc = hdul[1].data
+        f500 = hdul[21].data
+
+    mask = ~np.isnan(Tc) & (f500 > 15)
+
+    fig, axes = plt.subplots(ncols=2, nrows=1, sharex=True, sharey=True, figsize=(16, 9))
+    toplot = Tc.copy()
+    toplot[~mask] = np.nan
+    p = axes[0].imshow(toplot, origin='lower', vmin=5, vmax=16)
+    fig.colorbar(p, ax=axes[0])
+    p = axes[1].imshow(f500, origin='lower', vmin=0, vmax=150)
+    fig.colorbar(p, ax=axes[1])
+    plt.tight_layout()
+    plt.show()
+
+
+# XsvN()
 N2vs3()
-# weird()
+new_mask()
+# flux_mask()
