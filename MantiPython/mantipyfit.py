@@ -84,13 +84,16 @@ def fit_source(observations, errors, detectors, src_fn, initial_guess, bounds, d
 
 
 def bootstrap_errors(observations, errors, detectors, dusts,
-    niter=30, fit_f=fit_source_2p, verbose=False, **kwargs):
+    niter=30, fit_f=fit_source_2p, verbose=False,
+    perturbation_f=np.random.normal),
+    **kwargs):
+    # perturbation_f should take obs, err and return something like obs
     observations = np.array(observations)
+    print("KWARGS: ", kwargs)
     errors = np.array(errors)
     results = mpu.deque()
     for i in range(niter):
-        obs_perturbed = np.random.normal(loc=observations,
-            scale=errors)
+        obs_perturbed = perturbation_f(observations, errors)
         if verbose:
             sys.stdout.write(f"{i+1}/{niter}..\r")
             sys.stdout.flush()
@@ -123,4 +126,3 @@ def fit_full_image(observation_maps, error_maps, detectors,
         return result_seq.reshape((n_params, *img_shape)), chisq_seq.reshape(img_shape)
     else:
         return result_seq.reshape((n_params, *img_shape))
-

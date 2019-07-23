@@ -17,14 +17,9 @@ This is where I will run science code on my laptop!
 """
 
 def main():
-    # mtest_plot_params()
-    mtest_carry_Th_over()
-    # mtest_rendergrid()
+    mtest_boostrap_proper_error()
 
 def desktop_main():
-    # mtest_manyemcee()
-    # mtest_plot_params()
-    # mtest_write_boundary_solutions()
     mtest_boostrap()
 
 """
@@ -1069,7 +1064,7 @@ def mtest_boostrap():
     # get manticore answer
     nominal = [info_dict[x][index] for x in ("Tc", "Nh", "Nc") if x in info_dict]
     for x in (1, 2):
-        nominal[x] = np.log10(nominal[x]) 
+        nominal[x] = np.log10(nominal[x])
     # get python answer
     Tcf, Nhf, Ncf = mpfit.fit_source_3p(obs, err, herschel, dusts, Th=Th)
     print("manticore  >> Tc:{:5.2f}, Nh:{:.2E}, Nc:{:.2E}".format(*nominal))
@@ -1105,5 +1100,57 @@ def mtest_boostrap():
         focalpoint=[8, 20, 0], ax_labels=("Tc", "sum", "ratio Nc/Nh"))
     return
 
+
+def mtest_boostrap_proper_error():
+    chainnum = 0
+    index = 28
+    niter = 500
+    # the errors in _staterr are JUST the off-the-archive map err
+    info_dict = mpu.gen_CHAIN_dict(cconf.manticore_soln_3p_staterr, chain=chainnum)
+    mpu.adjust_uncertainties(info_dict,
+        lambda o, e: np.sqrt(e**2 + (o*1.5/100.)**2), # add 1.5%
+        exception=(lambda k: "160" in k)) # to SPIRE
+    mpu.adjust_uncertainties(info_dict,
+        lambda o, e: np.sqrt(e**2 + (o*5/100.)**2), # add 5%
+        exception=(lambda k: "160" not in k)) # to PACS
+    herschel = get_Herschel()
+    dusts = [Dust(beta=1.80), Dust(beta=2.10)]
+    obs = [x[index] for x in mpu.get_obs(info_dict)]
+    err = [x[index] for x in mpu.get_err(info_dict)]
+    Th = info_dict['Th'][index]
+    Tscale = 4
+    point_size = 0.2
+    # get manticore answer
+    nominal = [info_dict[x][index] for x in ("Tc", "Nh", "Nc") if x in info_dict]
+    for x in (1, 2):
+        nominal[x] = np.log10(nominal[x])
+    # get python answer
+    Tcf, Nhf, Ncf = mpfit.fit_source_3p(obs, err, herschel, dusts, Th=Th)
+    print("manticore  >> Tc:{:5.2f}, Nh:{:.2E}, Nc:{:.2E}".format(*nominal))
+    print("mantipyfit >> Tc:{:5.2f}, Nh:{:.2E}, Nc:{:.2E}".format(Tcf, 10**Nhf, 10**Ncf))
+    # set up correlated error
+    def spire_correlated_err(o, e):
+        # first draw from statistical uncertanties already present
+        result = np.random.normal(loc=o, scale=e)
+        # now draw from 4% distribution and add to each spire band
+        result[1:] *= np.random.normal(loc=1, scale=0.04)
+        return result
+    """
+    WE NEED TO TEST THIS (wrote this at midnight on Jul 22 2019)
+    """
+    # get bootstrap samples
+    boostrap_samples, boostrap_errors = mpfit.bootstrap_errors(obs, err, herschel,
+        dusts, niter=niter, fit_f=mpfit.fit_source_3p,
+        dof=1, Th=Th, verbose=True,
+        perturbation_f=spire_correlated_err)
+    boostrap_samples = np.array(boostrap_samples) # rows are realizations, cols are Tc logNh logNc
+    boostrap_samples[:, 1:] = np.log10(boostrap_samples[:, 1:])
+    # get emcee samples
+    emcee_samples = mpu.emcee_3p(index, info_dict, chainnum=chainnum,
+        dust=dusts, instrument=herschel, goodnessoffit=mpfit.goodness_of_fit_f_3p,
+        niter=200, burn=300, nwalkers=50, fig_fname="no plot", samples_fname="no save",
+        Th=Th)
+
+
 if __name__ == "__main__":
-    wdd = mtest_init_conditions_sensitivity()
+    print('nothing here')

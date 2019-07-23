@@ -37,7 +37,8 @@ H_stubs = {
     500: "SPIRE500um",
 }
 
-MANTICORE_KEYS = ["Tc", "dTc", "Nc", "dNc",
+MANTICORE_KEYS = [
+    "Tc", "dTc", "Nc", "dNc",
     "Th", "dTh", "Nh", "dNh",
     "obs160", "obs250", "obs350", "obs500",
     "err160", "err250", "err350", "err500",
@@ -140,15 +141,35 @@ def gengrids(ranges):
 
 P_LABELS = ('Tc', 'Nh', 'Nc')
 PE_LABELS = ('dTc', 'dNh', 'dNc')
+OBS_LABELS = ("obs160", "obs250", "obs350", "obs500")
+ERR_LABELS = ("err160", "err250", "err350", "err500")
+MOD_LABELS = ("mod160", "mod250", "mod350", "mod500")
 
 def get_obs(info_dict):
-    return [info_dict[x] for x in ("obs160", "obs250", "obs350", "obs500")]
+    return [info_dict[x] for x in OBS_LABELS]
 
 def get_err(info_dict):
-    return [info_dict[x] for x in ("err160", "err250", "err350", "err500")]
+    return [info_dict[x] for x in ERR_LABELS]
 
 def get_mod(info_dict):
-    return [info_dict[x] for x in ("mod160", "mod250", "mod350", "mod500")]
+    return [info_dict[x] for x in MOD_LABELS]
+
+def adjust_uncertainties(info_dict, f, exception=None):
+    """
+    f should be a function of (obs, err) for a given band
+    f should return an array the same shape as obs and err
+        e.g. f = lambda obs, err: sqrt(err**2 + (obs*0.05)**2)
+        would add 5% of the flux to the error
+    exception should take the obs key and return True/False
+    if exception(key) returns true, does NOT modify that error
+        e.g. exception = lambda key: "160" in key
+        would leave PACS error untouched
+    you'll have to do anything more complex manually
+    """
+    for o_key, e_key in zip(OBS_LABELS, ERR_LABELS):
+        if exception is not None and exception(o_key):
+            continue
+        info_dict[e_key] = f(info_dict[o_key], info_dict[e_key])
 
 
 def get_manticore_info(source, *args):
