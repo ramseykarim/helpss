@@ -143,6 +143,7 @@ P_LABELS = ('Tc', 'Nh', 'Nc')
 PE_LABELS = ('dTc', 'dNh', 'dNc')
 OBS_LABELS = ("obs160", "obs250", "obs350", "obs500")
 ERR_LABELS = ("err160", "err250", "err350", "err500")
+ORIG_ERR_LABELS = ("Xerr160", "Xerr250", "Xerr350", "Xerr500")
 MOD_LABELS = ("mod160", "mod250", "mod350", "mod500")
 
 def get_obs(info_dict):
@@ -165,11 +166,24 @@ def adjust_uncertainties(info_dict, f, exception=None):
         e.g. exception = lambda key: "160" in key
         would leave PACS error untouched
     you'll have to do anything more complex manually
+    this will write backups of original errors to ORIG_ERR_LABELS keys
+        but it won't overwrite existing backups,
+        in case you're layering modifications
     """
-    for o_key, e_key in zip(OBS_LABELS, ERR_LABELS):
+    for o_key, e_key, xe_key in zip(OBS_LABELS, ERR_LABELS, ORIG_ERR_LABELS):
         if exception is not None and exception(o_key):
             continue
+        if xe_key not in info_dict: # unless there already is a backup
+            info_dict[xe_key] = info_dict[e_key]
         info_dict[e_key] = f(info_dict[o_key], info_dict[e_key])
+
+
+def reset_uncertainties(info_dict):
+    # undo adjustments made to uncertainties
+    for e_key, xe_key in zip(ERR_LABELS, ORIG_ERR_LABELS):
+        if xe_key in info_dict: # if there is a backup; if it has been modified
+            info_dict[e_key] = info_dict[xe_key]
+            del info_dict[xe_key]
 
 
 def get_manticore_info(source, *args):
@@ -361,21 +375,16 @@ def render_points(points, nominal=None, Tscale=4, focalpoint_nominal=False,
     color=(0.219, 0.588, 0.192), opacity=0.4, scale_factor=0.1,
     mlab=None, noshow=False, figure="main",
     fig_size=(1200, 1050), nominal_point_size=0.2,
-    lims=None, ext=None, ax_labels=None, focalpoint=[10., 20.75, 20.75]):
+    lims=[0, 20, 18, 23, 18, 23], ext=None, ax_labels=("Tc", "Nh", "Nc"),
+    focalpoint=[10., 20.75, 20.75], setup_ax=True):
     # assumes the points are Tc logNh logNc within reasonable bounds
     focalpoint[0] /= Tscale
-    if lims is None:
-        lims = [0, 20, 18, 23, 18, 23]
-    if ext is None:
-        ext = [x if i > 1 else x/Tscale for i, x in enumerate(lims)]
-    if ax_labels is None:
-        ax_labels = ("Tc", "Nh", "Nc")
+    if mlab is None:
+        raise RuntimeError("Please pass the mlab module as kwarg 'mlab'")
     fig = mlab.figure(figure=figure, size=fig_size)
     mlab.points3d(points[:, 0]/Tscale, points[:, 1], points[:, 2],
         color=color, opacity=opacity, scale_factor=scale_factor,)
     if nominal is not None:
-        if mlab is None:
-            raise RuntimeError("Please pass the mlab module as kwarg 'mlab'")
         if nominal[2] > 100:
             nominal = [nominal[0]/Tscale, np.log10(nominal[1]), np.log10(nominal[2])]
         else:
@@ -388,11 +397,14 @@ def render_points(points, nominal=None, Tscale=4, focalpoint_nominal=False,
             pts = mlab.points3d(*([x] for x in nominal),
                 colormap='flag', mode='axes', scale_factor=nominal_point_size, line_width=4)
             eval("pts.glyph.glyph_source._trfm.transform.rotate_{:s}(45)".format(x))
-    mlab.axes(ranges=lims, extent=ext,
-        nb_labels=5, xlabel=ax_labels[0],
-        ylabel=ax_labels[1], zlabel=ax_labels[2])
-    mlab.view(azimuth=45., elevation=92., distance=9.,
-        focalpoint=focalpoint)
+    if setup_ax:
+        if ext is None:
+            ext = [x if i > 1 else x/Tscale for i, x in enumerate(lims)]
+        mlab.axes(ranges=lims, extent=ext,
+            nb_labels=5, xlabel=ax_labels[0],
+            ylabel=ax_labels[1], zlabel=ax_labels[2])
+        mlab.view(azimuth=45., elevation=92., distance=9.,
+            focalpoint=focalpoint)
     if not noshow:
         mlab.show()
     return fig
@@ -505,6 +517,21 @@ def plot_parameters_across_filament(info_dicts,
                 **plot_kwargs)
         ax.set_ylabel(ax_label)
     return axes
+
+
+def plot_stacked_SEDs(parameter_array, x_plot_array, src_fn,
+    x_array=None, color='k', ax=None):
+    if x_array is None:
+        x_array = x_plot_array
+    if ax is None:
+        plt.figure()
+        ax = plt.subplot(111)
+    # plot all parameter sets
+    for p_set in parameter_array:
+        src = src_fn(p_set)
+        ax.plot(x_plot_array, src.radiate(x_array), '-', alpha=0.1,
+            color='grey')
+    return
 
 
 def gaussian_1d(x, mu, sigma):

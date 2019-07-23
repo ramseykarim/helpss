@@ -5,63 +5,65 @@ from scipy.optimize import minimize
 import sys
 
 
-ITER = {'a': 0}
 
 # Standard guesses for Tc, Nh, Nc
 # Nh, Nc are log10
 standard_x0 = [10, 22, 23]
 
 def goodness_of_fit_f_3p(x, dusts, obs, err, instr, Th, dof):
-    ITER['a'] += 1
     # x is [Tc, Nh, Nc] (Ns in log10)
     src = Greybody([Th, x[0]], [10**N for N in x[1:]], dusts)
     # Computes reduced chi^2 given a source model and observations/errors
     return sum((d.detect(src) - o)**2 / (e*e) for d, o, e in zip(instr, obs, err))/dof
 
 
-def fit_source_3p(observations, errors, detectors, dusts, Th=15., dof=1.):
+def fit_source_3p(observations, errors, detectors, dusts,
+    Th=15., dof=1., **min_kwargs):
     result = minimize(goodness_of_fit_f_3p,
         x0=standard_x0,
         args=(dusts, observations, errors, detectors, Th, dof),
         bounds=((0, None), (18, 25), (18, 25)),
-        options={'maxiter': 50}
+        options={'maxiter': 50},
+        **min_kwargs,
     )
     # print("RESULT:", result.message)
     return result.x
 
 
 def goodness_of_fit_f_2p(x, dust, obs, err, instr, dof):
-    ITER['a'] += 1
     # x is [Tc, Nc] (N in log10)
     src = Greybody(x[0], 10**x[1], dust)
     # Computes reduced chi^2 given a source model and observations/errors
     return sum((d.detect(src) - o)**2 / (e*e) for d, o, e in zip(instr, obs, err))/dof
 
-def fit_source_2p(observations, errors, detectors, dust, dof=2.):
+def fit_source_2p(observations, errors, detectors, dust,
+    dof=2., **min_kwargs):
     result = minimize(goodness_of_fit_f_2p,
         x0=[standard_x0[0], standard_x0[2]],
         args=(dust, observations, errors, detectors, dof),
         bounds=((0, None), (18, 25)),
         options={'maxiter': 50}
+        **min_kwargs,
     )
     # print("RESULT:", result.message)
     return result.x
 
 
 def goodness_of_fit_f_1p(x, dust, obs, err, instr, Th, dof):
-    ITER['a'] += 1
     # x is [Tc, Nc] (N in log10)
     src = Greybody(Th, 10**x[0], dust)
     # Computes reduced chi^2 given a source model and observations/errors
     return sum((d.detect(src) - o)**2 / (e*e) for d, o, e in zip(instr, obs, err))/dof
 
 
-def fit_source_1p(observations, errors, detectors, dust, Th=15., dof=3.):
+def fit_source_1p(observations, errors, detectors, dust,
+    Th=15., dof=3., **min_kwargs):
     result = minimize(goodness_of_fit_f_1p,
         x0=[20,],
         args=(dust, observations, errors, detectors, Th, dof),
         bounds=((18, 25),),
         options={'maxiter': 50}
+        **min_kwargs,
     )
     return result.x
 
@@ -75,21 +77,23 @@ def gen_goodness_of_fit_f(obs, err, instr, src_fn, dof):
     return goodness_of_fit_f
 
 
-def fit_source(observations, errors, detectors, src_fn, initial_guess, bounds, dof=1.):
+def fit_source(observations, errors, detectors, src_fn, initial_guess, bounds, dof=1.,
+    goodness_of_fit_f=None, **min_kwargs):
     # see src_fn requirements in gen_goodness_of_fit_f
-    goodness_of_fit_f = gen_goodness_of_fit_f(observations, errors, detectors, src_fn, dof)
+    if goodness_of_fit_f is None:
+        goodness_of_fit_f = gen_goodness_of_fit_f(observations, errors, detectors, src_fn, dof)
     result = minimize(goodness_of_fit_f,
-        x0=initial_guess, bounds=bounds, options={'maxiter': 50})
+        x0=initial_guess, bounds=bounds, options={'maxiter': 50},
+        **min_kwargs)
     return result.x
 
 
 def bootstrap_errors(observations, errors, detectors, dusts,
     niter=30, fit_f=fit_source_2p, verbose=False,
-    perturbation_f=np.random.normal),
+    perturbation_f=np.random.normal, samples_only=False,
     **kwargs):
     # perturbation_f should take obs, err and return something like obs
     observations = np.array(observations)
-    print("KWARGS: ", kwargs)
     errors = np.array(errors)
     results = mpu.deque()
     for i in range(niter):
@@ -104,7 +108,10 @@ def bootstrap_errors(observations, errors, detectors, dusts,
         print()
     fitted_param_sets = list(results)
     param_uncertainties = [np.std(x) for x in zip(*results)]
-    return fitted_param_sets, param_uncertainties
+    if samples_only:
+        return fitted_param_sets
+    else:
+        return fitted_param_sets, param_uncertainties
 
 
 def fit_full_image(observation_maps, error_maps, detectors,

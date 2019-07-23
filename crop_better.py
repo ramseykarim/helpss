@@ -42,7 +42,8 @@ c6_coord = SkyCoord("3:33:53.142 +31:19:30.83", frame=FK5, unit=(u.hourangle, u.
 # this is right at NGC 1333
 c7_coord = SkyCoord("3:29:09.435 +31:13:13.51", frame=FK5, unit=(u.hourangle, u.deg)) # 7
 
-c_coords = {6: (c6_coord, 0.14, 0.16), 7: (c7_coord, 0.12, 0.17)}
+c_coords = {6: (c6_coord, 0.14, 0.16),}
+# c_coords = {6: (c6_coord, 0.14, 0.16), 7: (c7_coord, 0.12, 0.17)}
 
 # Generator expressions for FITS image names
 fn_2paramfit = "%sT4-absdiff-%s-4bandLErr.fits" % (dir_stub, field_stub)
@@ -174,15 +175,18 @@ if __name__ == '__main__':
 	img3 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/SPIRE350um-image-remapped-conv"
 	img4 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/SPIRE500um-image-remapped-conv"
 	err1 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/PACS160um-plus05.0pct-error-remapped-conv"
-	err2 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/SPIRE250um-plus05.0pct-error-remapped-conv"
-	err3 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/SPIRE350um-plus05.0pct-error-remapped-conv"
-	err4 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/SPIRE500um-plus05.0pct-error-remapped-conv"
+	err2 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/SPIRE250um-plus01.5pct-error-remapped-conv"
+	err3 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/SPIRE350um-plus01.5pct-error-remapped-conv"
+	err4 = "/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/SPIRE500um-plus01.5pct-error-remapped-conv"
 	all_files = [img1, img2, img3, img4, err1, err2, err3, err4]
 	for f in all_files:
 		for i in c_coords:
 			coord, dx, dy = c_coords[i]
 			source_filename = "/n" + f + ".fits"
 			target_filename = "/n" + f + "-crop{}.fits".format(str(int(i)))
-			crop_original(coord, source_filename, target_filename, cropped_width=(dx, dy))
+			try:
+				crop_original(coord, source_filename, target_filename, cropped_width=(dx, dy))
+			except:
+				print("this file already exists")
 
 
