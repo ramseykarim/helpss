@@ -151,7 +151,10 @@ def test_filter_conv_N():
     plt.show()
 
 
-def test_inpaint():
+def inpaint_mask():
+    # returns (ipmask, validmask)
+    # ipmask is true where data needs to be inpainted
+    # validmask is true where data is valid (not nan)
     with fitsopen(soln_2p_5pcterr) as hdul:
         T = hdul[1].data
         N = hdul[3].data
@@ -162,10 +165,60 @@ def test_inpaint():
     T_conv = convolve_properly(T, conv_beam)
     N_conv = convolve_properly(N, conv_beam)
     mask_N = (N_conv < 1.5e21)
+    return ~mask_N, ~nanmask
     T_conv[~mask_N] = np.nan
+    plt.imshow(T_conv, origin='lower', vmin=13, vmax=19)
+    plt.show()
     # take the masked T_conv map and fill in the internal nans
     # don't fill in the nans outside (nanmask)
     pass
 
+
+def boolean_edges(mask):
+    # takes in a bool array
+    # returns bool array of 1s from mask that border 0s
+
+    mshape = mask.shape
+    # cast to int so we can add
+    mask = mask.astype(int)
+    border_count = np.zeros(mshape, dtype=int)
+    """
+    [:, :]     [:, :] # self
+    [:, 1:]    [:, :-1] # right
+    [:, -1]    [:, 1:] # left
+    [1:, :]    [:-1, :] # up
+    [1:, 1:]   [:-1, :-1] # top right
+    [1:, :-1]  [:-1, 1:] # top left
+    [:-1, :]   [1:, :] # down
+    [:-1, 1:]  [1:, :-1] # bottom right
+    [:-1, :-1] [1:, 1:] # bottom left
+    """
+    options = ((":", ":"), ("1:", ":-1"), (":-1", "1:"))
+    for i in range(3):
+        row = options[i]
+        for j in range(3):
+            col = options[j]
+            stmt_l = "[{:s}, {:s}]".format(row[0], col[0])
+            stmt_r = "[{:s}, {:s}]".format(row[1], col[1])
+            stmt = "dst{:s} = dst{:s} + src{:s}".format(stmt_l, stmt_l, stmt_r)
+            print(stmt)
+            exec(stmt, {}, {"dst": border_count, "src": mask})
+    # at this point, can add 
+    return border_count.astype(bool) ^ mask
+
+
 if __name__ == "__main__":
-    test_filter_conv_N()
+    ipmask, validmask = inpaint_mask()
+    notipmask = ~(validmask&ipmask)
+    border = boolean_edges(notipmask)
+    plt.imshow(border, origin='lower')
+    # arr = np.arange(64).reshape(8, 8)
+    # mask = np.ones(arr.shape)
+    # mask[arr > 47] = 0
+    # mask[arr < 16] = 0
+    # mask[arr%8 < 1] = 0
+    # mask[arr%8 > 6] = 0
+    # mask = ~(mask.astype(bool))
+    # count = boolean_edges(mask)
+    # plt.imshow(count, origin='lower')
+    plt.show()
