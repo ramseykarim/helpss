@@ -24,11 +24,11 @@ pacs_err_mod = 5.
 per1_dir = "/n/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/"
 img = "-image"
 err = "-error"
-suffix = "-remapped-conv.fits"
+suffix = "-remapped-conv-CUTOUT.fits"
 def get_img_stub(wavelength):
 	band_stub = band_stubs[wavelength]
-	if wavelength == 160:
-		band_stub += "-plus045"
+	# if wavelength == 160:
+	# 	band_stub += "-plus045"
 	return f"{per1_dir}{band_stub}{img}{suffix}"
 
 def get_new_err_stub(wavelength):
@@ -42,9 +42,10 @@ def get_err_stub(wavelength):
 for wl in wavelengths:
 	i_data = fits.getdata(get_img_stub(wl))
 	e_data, hdr = fits.getdata(get_err_stub(wl), header=True)
-	hdr['comment'] = "Added {:04.1f} percent of flux to this map (RLK)".format(err_mod)
 	err_mod = pacs_err_mod if wl==160 else spire_err_mod
+	hdr['comment'] = "Added {:04.1f} percent of flux to this map (RLK)".format(err_mod)
 	e_data = np.sqrt(e_data**2 + (i_data*(err_mod/100.))**2)
+	# print(get_new_err_stub(wl))
 	try:
 		fits.writeto(get_new_err_stub(wl), e_data, hdr)
 		print("Wrote ", get_new_err_stub(wl))

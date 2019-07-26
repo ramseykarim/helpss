@@ -20,7 +20,7 @@ def main():
     mtest_boostrap_proper_error()
 
 def desktop_main():
-    mtest_boostrap()
+    mtest_boostrap_proper_error()
 
 """
 Scripts below here
@@ -587,7 +587,7 @@ def mtest_emcee_3p():
         #     samples[:, i], '--', color='k', linewidth=3)
     plt.show()
 
-    # simulated_data = mpu.deque()
+    # simulated_data = mpu.deque() # plot fluxes in corner plot
     # for s in samples:
     #     cloudf = Greybody([Th, s[0]], [10**x for x in s[1:]], dust)
     #     simulated_data.append([d.detect(cloudf) for d in herschel])
@@ -1103,8 +1103,7 @@ def mtest_boostrap():
 
 def mtest_boostrap_proper_error():
     chainnum = 0
-    index = 28
-    niter = 500
+    index = 33
     # the errors in _staterr are JUST the off-the-archive map err
     info_dict = mpu.gen_CHAIN_dict(cconf.manticore_soln_3p_staterr, chain=chainnum)
     mpu.adjust_uncertainties(info_dict,
@@ -1113,6 +1112,8 @@ def mtest_boostrap_proper_error():
     mpu.adjust_uncertainties(info_dict,
         lambda o, e: np.sqrt(e**2 + (o*5/100.)**2), # add 5%
         exception=(lambda k: "160" not in k)) # to PACS
+    # nu_range = np.exp(np.linspace(np.log(cst.c/(1500*1e-6)), np.log(cst.c/(50*1e-6)), 100))
+    # wl_range = 1e6*cst.c/nu_range
     herschel = get_Herschel()
     dusts = [Dust(beta=1.80), Dust(beta=2.10)]
     obs = [x[index] for x in mpu.get_obs(info_dict)]
@@ -1121,13 +1122,13 @@ def mtest_boostrap_proper_error():
     Tscale = 4
     point_size = 0.2
     # get manticore answer
-    nominal = [info_dict[x][index] for x in ("Tc", "Nh", "Nc") if x in info_dict]
+    nominal = [info_dict[x][index] for x in ("Tc", "Nh", "Nc")]
     for x in (1, 2):
         nominal[x] = np.log10(nominal[x])
     # get python answer
     Tcf, Nhf, Ncf = mpfit.fit_source_3p(obs, err, herschel, dusts, Th=Th)
     print("manticore  >> Tc:{:5.2f}, Nh:{:.2E}, Nc:{:.2E}".format(*nominal))
-    print("mantipyfit >> Tc:{:5.2f}, Nh:{:.2E}, Nc:{:.2E}".format(Tcf, 10**Nhf, 10**Ncf))
+    print("mantipyfit >> Tc:{:5.2f}, Nh:{:.2E}, Nc:{:.2E}".format(Tcf, Nhf, Ncf))
     # set up correlated error
     def spire_correlated_err(o, e):
         # first draw from statistical uncertanties already present
@@ -1138,19 +1139,51 @@ def mtest_boostrap_proper_error():
     """
     WE NEED TO TEST THIS (wrote this at midnight on Jul 22 2019)
     """
-    # get bootstrap samples
-    boostrap_samples, boostrap_errors = mpfit.bootstrap_errors(obs, err, herschel,
-        dusts, niter=niter, fit_f=mpfit.fit_source_3p,
-        dof=1, Th=Th, verbose=True,
-        perturbation_f=spire_correlated_err)
-    boostrap_samples = np.array(boostrap_samples) # rows are realizations, cols are Tc logNh logNc
-    boostrap_samples[:, 1:] = np.log10(boostrap_samples[:, 1:])
+    # bootstrap samples
+    bsargs = (obs, err, herschel, dusts,)
+    bskwargs = dict(niter=50, fit_f=mpfit.fit_source_3p, dof=1, Th=Th,
+        verbose=True, samples_only=True, method='SLSQP')
+    def clean_bootstrap_results(array):
+        array = np.array(array)
+        array[:, 1:] = np.log10(array[:, 1:])
+        return array
+    # 1: 1.5% SPIRE + 4% correlated
+    boostrap_samples1 = mpfit.bootstrap_errors(*bsargs, **bskwargs,
+        perturbation_f=spire_correlated_err) # rows are realizations, cols are Tc logNh logNc
+    boostrap_samples1 = clean_bootstrap_results(boostrap_samples1)
+    # 2: 1.5% SPIRE
+    boostrap_samples2 = mpfit.bootstrap_errors(*bsargs, **bskwargs)
+    boostrap_samples2 = clean_bootstrap_results(boostrap_samples2)
+    # 3: 5.5% SPIRE
+    mpu.reset_uncertainties(info_dict)
+    mpu.adjust_uncertainties(info_dict,
+        lambda o, e: np.sqrt(e**2 + (o*5.5/100.)**2), # add 5.5%
+        exception=(lambda k: "160" in k)) # to SPIRE
+    mpu.adjust_uncertainties(info_dict,
+        lambda o, e: np.sqrt(e**2 + (o*5/100.)**2), # add 5%
+        exception=(lambda k: "160" not in k)) # to PACS
+    boostrap_samples3 = mpfit.bootstrap_errors(*bsargs, **bskwargs)
+    boostrap_samples3 = clean_bootstrap_results(boostrap_samples3)
+    from mayavi import mlab
+    magenta = (0.588, 0.090, 0.588)
+    green = (0.219, 0.588, 0.192)
+    blue = (0.478, 0.725, 0.780)
+    pkwargs = dict(Tscale=Tscale, mlab=mlab, scale_factor=0.05, opacity=0.2)
+    fig = mpu.render_points(boostrap_samples1, color=green,
+        noshow=True, setup_ax=False, **pkwargs)
+    fig = mpu.render_points(boostrap_samples2, color=blue, figure=fig,
+        noshow=True, setup_ax=False, **pkwargs)
+    fig = mpu.render_points(boostrap_samples3, color=magenta, figure=fig,
+        ax_labels=("Tc", "Nh", "Nc"), nominal=nominal,
+        focalpoint_nominal=True, **pkwargs)
     # get emcee samples
-    emcee_samples = mpu.emcee_3p(index, info_dict, chainnum=chainnum,
-        dust=dusts, instrument=herschel, goodnessoffit=mpfit.goodness_of_fit_f_3p,
-        niter=200, burn=300, nwalkers=50, fig_fname="no plot", samples_fname="no save",
-        Th=Th)
-
+    # emcee_samples = mpu.emcee_3p(index, info_dict, chainnum=chainnum,
+    #     dust=dusts, instrument=herschel, goodnessoffit=mpfit.goodness_of_fit_f_3p,
+    #     niter=200, burn=300, nwalkers=40, fig_fname="no plot", samples_fname="no save",
+    #     Th=Th)
+    # fig = mpu.render_points(emcee_samples, color=magenta, figure=fig,
+    #     ax_labels=("Tc", "Nh", "Nc"), nominal=nominal, **pkwargs)
+    return
 
 if __name__ == "__main__":
     print('nothing here')
