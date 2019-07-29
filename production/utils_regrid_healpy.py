@@ -10,6 +10,64 @@ except ModuleNotFoundError:
     hp = None
 from scipy.interpolate import interpn, griddata
 
+"""
+Functions for the outside world.
+"""
+
+
+def healpix2fits(source_hp, target_fits_grid, target_fits_header,
+                 nest=False, pixel_scale_arcsec=75, method='scipy',
+                 interp_method='nearest'):
+    """
+    Wrapper for both _healpy and _scipy methods of projecting HEALPix
+    to FITS standard.
+    See documentation for following for more details:
+        regrid_healpix_to_fits_scipy (method='scipy')
+        regrid_healpix_to_fits_healpy (method='healpy')
+        scipy method is currently more trustworthy.
+    :param source_hp: HEALPix map, already opened in healpy (numpy array)
+    :param target_fits_grid: data from target grid.
+        Pixels with NaN values in this grid will not be interpolated to.
+    :param target_fits_header: header object from target grid. Needs WCS info.
+    :param nest: "nest" argument to be passed to healpy.
+        See open_healpy documentation for notes
+    :param pixel_scale_arcsec: intermediate pixel scale in arcseconds.
+        75 arcseconds for Planck HFI
+    :param method: HEALPix to FITS interpolation routine; 'scipy' or 'healpy',
+        see above.
+    :param interp_method: interpolation method to pass to interpn (method='scipy' only)
+        Options are: 'nearest', 'linear', and 'splinef2d'. Default is 'nearest'.
+        See HEALPix2FITS.intermediate_to_target documentation for some info.
+        See scipy.interpolate.interpn for more detail.
+    :return: array of target shape with values interpolated from source
+    """
+    if method == 'scipy':
+        return regrid_healpix_to_fits_scipy(source_hp, target_fits_grid, target_fits_header,
+                                            nest=nest, pixel_scale_arcsec=pixel_scale_arcsec,
+                                            method=interp_method)
+    elif method == 'healpy':
+        return regrid_healpix_to_fits_healpy(source_hp, target_fits_grid, target_fits_header,
+                                             nest=nest)
+    else:
+        raise TypeError("Invalid method: {}".format(method))
+
+
+def open_healpix(filename, nest=False):
+    """
+    Shortcut to opening a HEALPix map, so healpy need not be imported for a single call
+    :param filename: string filename (with valid path) to HEALPix FITS file
+    :param nest: HEALPix nest parameter. True implies "NESTED" data ordering,
+        False implies "RING". Usually RING for the newer Planck Archive HEALPix maps.
+        If you open up the map with this function, try
+            the_map = this_module.open_healpix(filename, nest=False)
+            this_module.hp.mollview(the_map)
+            plt.show()  # with matplotlib.pyplot as plt
+        it will become very clear whether you have the right ordering.
+        The wrong ordering will be composed entirely of streaks/artifacts.
+    :return: healpy map object
+    """
+    return hp.read_map(filename, nest=nest)
+
 
 """
 Convenience functions for projection methods
@@ -198,10 +256,10 @@ class HEALPix2FITS:
                                                     self.target_head)
         n_pix_l, n_pix_b = calc_pixel_count((box_lim_l, box_lim_b),
                                             self.pixel_scale)
-        projection = hp.projector.CartesianProj(xsize=n_pix_l, ysize=n_pix_b,
-                                                lonra=np.array(box_lim_l),
-                                                latra=np.array(box_lim_b))
-        projection.set_flip('astro')
+        self._projection = hp.projector.CartesianProj(xsize=n_pix_l, ysize=n_pix_b,
+                                                      lonra=np.array(box_lim_l),
+                                                      latra=np.array(box_lim_b))
+        self._projection.set_flip('astro')
 
         # Get the l and b grid arrays from which we will interpolate
         # The intermediate image is a regular grid in l, b
@@ -228,7 +286,7 @@ class HEALPix2FITS:
         This map should fully encompass the target map.
         Sets self.intermediate to a numpy array, the image at self.pixel_scale
         :param source_hp: HEALPix map, already opened in healpy
-        :param nest: False for component maps, True for flux maps
+        :param nest: nest parameter for healpy. See open_healpy for notes
         """
         # Get healpy "n_side" parameter
         n_side = hp.get_nside(source_hp)
@@ -236,7 +294,7 @@ class HEALPix2FITS:
         # Get vec2pix function to pass to CartesianProj.projmap
         # Fun fact! The healpy documentation incorrectly defines
         #   the type of vec2pix function needed by projmap! Terrible!
-        def vec2pix_func(xyz):
+        def vec2pix_func(*xyz):
             return hp.pixelfunc.vec2pix(n_side, *xyz, nest=nest)
 
         # Now project the HEALPix map using the CartesianProj
@@ -273,7 +331,7 @@ class HEALPix2FITS:
         """
         Wrapper for the two steps in projecting HEALPix to FITS target.
         :param source_hp: source HEALPix, already opened with healpy
-        :param nest: False for component maps, True for flux maps
+        :param nest: nest parameter for healpy. See open_healpy for notes
         :param method: interpolation method to pass to interpn
         :return: final interpolated image on target FITS grid
         """
@@ -284,13 +342,13 @@ class HEALPix2FITS:
         return result
 
 
-def healpix2fits(source_hp, target_fits_grid, target_fits_header,
-                 nest=False, pixel_scale_arcsec=75, method='nearest'):
+def regrid_healpix_to_fits_scipy(source_hp, target_fits_grid, target_fits_header,
+                                 nest=False, pixel_scale_arcsec=75, method='nearest'):
     """
     Wrapper for the HEALPix2FITS object and project method.
     Regrid a HEALPix map onto a target grid.
     This is the preferred way to project a HEALPix image onto a predefined
-        FITS grid. regrid_healpix_to_fits is an alternative using pure healpy.
+        FITS grid. regrid_healpix_to_fits_healpy is an alternative using pure healpy.
     This method relies on the healpy CartesianProj object to bring HEALPix to
         grid, and the scipy.interpolate.interpn routine to interpolate the resulting
         "intermediate" grid to the final target grid.
@@ -306,7 +364,7 @@ def healpix2fits(source_hp, target_fits_grid, target_fits_header,
         Pixels with NaN values in this grid will not be interpolated to.
     :param target_fits_header: header object from target grid. Needs WCS info.
     :param nest: "nest" argument to be passed to healpy.
-        Nest should be True for frequency maps and False for component maps.
+        See open_healpy for notes
     :param pixel_scale_arcsec: intermediate pixel scale in arcseconds.
     :param method: interpolation method to pass to interpn
     :return: array of target shape with values interpolated from source
@@ -320,14 +378,14 @@ def healpix2fits(source_hp, target_fits_grid, target_fits_header,
 
 
 """
-Alternate to HEALPix2FITS.project: regrid_healpix_to_fits
+Alternate to HEALPix2FITS.project: regrid_healpix_to_fits_healpy
 Uses pure healpy to project.
 Given the number of bugs I've found in healpy, I trust the HEALPix2FITS method.
 """
 
 
-def regrid_healpix_to_fits(source_hp, target_fits_grid, target_fits_header,
-                           nest=False):
+def regrid_healpix_to_fits_healpy(source_hp, target_fits_grid, target_fits_header,
+                                  nest=False):
     """
     ALTERNATE TO HEALPix2FITS
     <IMPORTANT NOTE>
@@ -351,7 +409,7 @@ def regrid_healpix_to_fits(source_hp, target_fits_grid, target_fits_header,
         Pixels with NaN values in this grid will not be interpolated to.
     :param target_fits_header: header object from target grid. Needs WCS info.
     :param nest: "nest" argument to be passed to healpy.
-        Nest should be True for frequency maps and False for component maps.
+        See open_healpy for notes
     :return: array of target shape with values interpolated from source
     """
     # Get pixel coordinate pair list
