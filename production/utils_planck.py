@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.constants import k, h, c
 from astropy.io import fits
+import path_config as cfg
 
 
 def sizeof_fmt(num, suffix='B'):
@@ -18,36 +19,129 @@ def sizeof_fmt(num, suffix='B'):
     return "%.1f%s%s" % (num, 'Yi', suffix)
 
 
-planck_freq_lim = (1e10, 2e12)  # Hz
+# (For PyCharm IDE)
+# noinspection PyPep8Naming
+def B(T, nu):
+    """
+    Planck blackbody function in SI units (frequency).
+    Simple enough for numpy broadcasting to work well.
+    :param T: temperature in Kelvin
+    :param nu: frequency in Hz
+    :return: spectral radiance in W sr-1 m-2 Hz-1
+    """
+    coefficient = 2 * h * (nu ** 3) / (c * c)
+    exponent = h * nu / (k * T)
+    return coefficient / (np.exp(exponent) - 1)
 
 
-def get_bandpass_data(stub):
+def shape_of_component(func_to_decorate):
     """
-    Get photometry weighting function for either Herschel or Planck HFI.
-    Returns tuple(frequency array in Hz, weight array).
-    Relies on a bandpass_files dictionary to have accurate filenames
-        to all Herschel filter profiles as well as the Planck HFI RIMO.
-    :param: stub: short string name indicating the bandpass filter
-    :returns: tuple(array, array) of frequencies (Hz) and filter transmission.
-        Normalization of the transmission curve is arbitrary
+    Decorator for functions returning component arrays.
+    Adds an empty dimension in a convenient place.
+    :param func_to_decorate: a function that returns a component map
+    :return: the component map with an extra dimension
     """
-    # Check if Planck ('F') or Herschel
-    if stub[0] == "F":
-        # Planck; use RIMO
-        with fits.open(p_RIMO) as hdul:
-            i = bandpass_files[stub]
-            # Ensure this is the right band
-            assert stub == hdul[i].header['EXTNAME'][-4:]
-            frequency_hz = hdul[i].data['WAVENUMBER'] * c * 1e2
-            weight = hdul[i].data['TRANSMISSION']
-        # Limit the frequency range of the outputs to avoid large/small floats
-        weight = limit_planck_frequency(weight, frequency_hz)
-        # fixme why didn't this work? vvvv
-        # limit_planck_frequency(frequency_hz, frequency_hz)
-        frequency_hz = frequency_hz[(frequency_hz > 1e10) & (frequency_hz < 2e12)]
+
+    def decorated_function(*args):
+        return func_to_decorate(*args)[np.newaxis, :]
+
+    return decorated_function
+
+
+def shape_of_frequency(func_to_decorate):
+    """
+    Decorator for functions returning frequency-related arrays.
+    Adds an empty dimension in a convenient place.
+    :param func_to_decorate: a function that returns (frequency, weight)
+    :return: (frequency, weight) but with extra dimensions
+    """
+
+    def decorated_function(*args):
+        return tuple(map(lambda array: array[:, np.newaxis, np.newaxis], func_to_decorate(*args)))
+
+    return decorated_function
+
+
+def flux_helper(n_start, n_end, frequency, weight, normalization, temperature, tau, beta):
+    """
+    Helper function for calculating flux in blocks
+    :param n_start: start index
+    :param n_end: end index
+    :param frequency: frequency in Hz (shaped correctly)
+    :param weight: transmission curve for some filter (shaped correctly)
+    :param normalization: normalized weight curve (shaped correctly)
+    :param temperature: temperature in Kelvin (shaped correctly)
+    :param tau: opacity at 353 GHz (shaped correctly)
+    :param beta: spectral index (shaped correctly)
+    :return: flux for the given filter profile (weight) between axis=1 n_start:n_end
+    """
+    result = np.empty((frequency.shape[0], n_end - n_start, temperature.shape[2]))
+
+    def crop(array):
+        # Crop along one of the image axes
+        return array[:, n_start:n_end, :]
+
+    result[:] = B(crop(temperature), frequency)
+    result *= tau
+    # 353 GHz is the frequency referenced by the opacity map
+    result *= (frequency / 353 * 1e9) ** crop(beta)
+    result *= weight
+    result = np.sum(result, axis=0) / normalization
+    # 10^20 to convert from SI to MJy/sr
+    return result * 1e20
+
+
+def calculate_gnilc_flux(band_center, frequency, weight, temperature, tau, beta):
+    """
+    Calculate Planck GNILC dust model-predicted flux for a given filter profile.
+    Because this can be extremely memory intensive but highly parallel, the
+        calculation may be done in 128 MiB blocks. This will happen if the
+        frequency x row x col array is larger than 512 MiB.
+    :param band_center: float effective central frequency in Hz
+    :param frequency: frequency array in Hz (shaped correctly)
+    :param weight: transmission curve for some filter (shaped correctly)
+    :param temperature: temperature in Kelvin (shaped correctly)
+    :param tau: opacity at 353 GHz (shaped correctly)
+    :param beta: spectral index (shaped correctly)
+    :return: flux for the given filter profile (weight)
+    """
+    # Calculate filter curve normalization
+    normalization = np.sum(weight * band_center / frequency)
+    # 64 bit float == 8 byte float
+    # noinspection PyPep8Naming
+    MiB = 1024 * 1024
+    # noinspection PyPep8Naming
+    cube_size = frequency.size * temperature.size * 8
+    is_large = cube_size > 512
+    if is_large:
+        row_step = 128 * MiB // (frequency.size * temperature.shape[2] * 8)
+        n_rows, n_cols = temperature.shape[1], temperature.shape[2]
+        n_steps = n_rows // row_step
+        n_rows_leftover = n_rows % row_step
+        result = np.zeros((n_rows, n_cols))
+        for i in range(n_steps):
+            n_start, n_end = i * row_step, (i + 1) * row_step
+            result[n_start:n_end, :] = flux_helper(n_start, n_end,
+                                                   frequency, weight,
+                                                   normalization,
+                                                   temperature, tau, beta)
+        n_start, n_end = n_steps * row_step, n_steps * row_step + n_rows_leftover
+        result[n_start:n_end, :] = flux_helper(n_start, n_end,
+                                               frequency, weight,
+                                               normalization,
+                                               temperature, tau, beta)
     else:
-        # Herschel; use Kevin's filter profiles
-        fn = bandpass_files[stub]
-        bp_data = np.loadtxt(fn)
-        frequency_hz, weight = bp_data[:, 0], bp_data[:, 1]
-    return frequency_hz, weight
+        result = flux_helper(0, temperature.shape[1], frequency, weight,
+                             normalization, temperature, tau, beta)
+    return result
+
+
+# todo fix this next time
+class GNILCModel:
+
+    def __init__(self, target_data, target_head):
+        self.target_data = target_data
+        self.target_head = target_head
+
+    def regrid_component(self):
+        pass

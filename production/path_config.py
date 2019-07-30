@@ -2,10 +2,10 @@ from scipy.constants import c
 import numpy as np
 from astropy.io.fits import open as fits_open
 """
-Configuration module for file paths and related items
+Configuration module for file paths and related items, some file I/O
 
 The items in this file should be changed by the user (probably Lee) when appropriate.
-The items you will most likely change:
+The items you will most likely change (at top of this file):
 
 gnilc_directory
 rimo_directory
@@ -37,7 +37,7 @@ List the full path to the file here
 ***************************************************************************
 """
 # *************************************************************************
-rimo_directory = ""
+rimo_directory = "/home/ramsey/Documents/Research/Filaments/HFI_stuff/"
 # *************************************************************************
 
 """
@@ -53,7 +53,7 @@ Place them all in the same directory & put the path to the directory here.
 ***************************************************************************
 """
 # *************************************************************************
-herschel_bandpass_directory = ""
+herschel_bandpass_directory = "/home/ramsey/Documents/Research/Filaments/Herschel_bands/"
 # *************************************************************************
 
 # -------------------------------------------------------------------------
@@ -114,16 +114,16 @@ def angstroms_to_hz(x_angstroms):
     return c / (x_angstroms * 1e-10)
 
 
-def limit_planck_frequency(arr, f_arr):
+def limit_planck_frequency(f_arr):
     """
     Helper function for bandpass_profile functions
-    Trims a frequency-related array using the frequency array
-    :param arr: the array to trim
+    Returns a mask for trimming a frequency-related array
+        based on the frequency array of the same shape
+    Limits are generous and therefore hardcoded
     :param f_arr: the frequency array
     :return: the trimmed array
     """
-    mask = (f_arr > 1e10) & (f_arr < 2e12)
-    return arr[mask]
+    return (f_arr > 1e10) & (f_arr < 2e12)
 
 
 class PlanckConfig:
@@ -148,12 +148,23 @@ class PlanckConfig:
         :return: arrays: frequency (Hz), weight (arbitrary)
         """
         with fits_open(PlanckConfig.hfi_rimo) as hdul:
+            # Use extension index i to reference RIMO info
             i = hfi_bandpass_indices[hfi_bandpass_stubs.index(bandpass_stub)]
-            assert bandpass_stub == hdul[i].header['EXTNAME'][-4]
+            # Sanity check!
+            try:
+                assert bandpass_stub == hdul[i].header['EXTNAME'][-4:]
+            except AssertionError:
+                msg = "Filter name mismatch. "
+                msg += "Failed assertion between: "
+                msg += f"{bandpass_stub} // {hdul[i].header['EXTNAME'][-4:]}"
+                raise RuntimeError(msg)
+            # Wavenumber delivered in cm-1; convert to frequency in Hz
             frequency_hz = hdul[i].data['WAVENUMBER'] * c * 1e2
             weight = hdul[i].data['TRANSMISSION']
-        weight = limit_planck_frequency(weight, frequency_hz)
-        frequency_hz = limit_planck_frequency(frequency_hz, frequency_hz)
+        # Trim high and low frequencies
+        f_mask = limit_planck_frequency(frequency_hz)
+        weight = weight[f_mask]
+        frequency_hz = frequency_hz[f_mask]
         return frequency_hz, weight
 
     @staticmethod
@@ -196,3 +207,36 @@ class HerschelConfig:
         """
         return angstroms_to_hz(herschel_bandpass_centers[herschel_bandpass_stubs.index(bandpass_stub)])
 
+
+"""
+Convenience functions exposed to the outside world.
+"""
+
+
+def get_bandpass_data(stub):
+    """
+    Get photometry weighting function for either Herschel or Planck HFI.
+    Returns tuple(frequency array in Hz, weight array).
+    Relies on this config module to have accurate filenames
+        to all Herschel filter profiles as well as the Planck HFI RIMO.
+    :param: stub: short string name indicating the bandpass filter
+    :returns: tuple(array, array) of frequencies (Hz) and filter transmission.
+        Normalization of the transmission curve is arbitrary
+    """
+    # Check if Planck ('F') or Herschel
+    instrument = PlanckConfig if stub[0] == 'F' else HerschelConfig
+    return instrument.bandpass_profile(stub)
+
+
+def get_bandpass_center(stub):
+    """
+    Get effective band centers in Hz for either Herschel or Planck HFI
+    Returns frequency in Hz
+    Relies on this config module to have accurate filenames
+        to all Herschel filter profiles as well as the Planck HFI RIMO
+    :param stub: short string name indicating the bandpass filter
+    :return: float frequency in Hz
+    """
+    # Check if Planck ('F') or Herschel
+    instrument = PlanckConfig if stub[0] == 'F' else HerschelConfig
+    return instrument.bandpass_center(stub)
