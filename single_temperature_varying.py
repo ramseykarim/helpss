@@ -164,8 +164,8 @@ def inpaint_mask():
     conv_beam = prepare_convolution(w, new_beam)
     T_conv = convolve_properly(T, conv_beam)
     N_conv = convolve_properly(N, conv_beam)
-    mask_N = (N_conv < 1.5e21)
-    return ~mask_N, ~nanmask
+    mask_N = (N_conv > 1.5e21) # this is what we want to inpaint
+    return mask_N, ~nanmask
     T_conv[~mask_N] = np.nan
     plt.imshow(T_conv, origin='lower', vmin=13, vmax=19)
     plt.show()
@@ -209,9 +209,9 @@ def boolean_edges(mask):
 
 if __name__ == "__main__":
     ipmask, validmask = inpaint_mask()
-    notipmask = ~(validmask&ipmask)
-    border = boolean_edges(notipmask)
-    plt.imshow(border, origin='lower')
+    # notipmask = ~(validmask&ipmask)
+    # border = boolean_edges(notipmask)
+    plt.imshow(ipmask, origin='lower')
     # arr = np.arange(64).reshape(8, 8)
     # mask = np.ones(arr.shape)
     # mask[arr > 47] = 0
