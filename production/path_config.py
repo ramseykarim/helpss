@@ -24,7 +24,7 @@ Place them all in the same directory & put the path to the directory here.
 ***************************************************************************
 """
 # *************************************************************************
-gnilc_directory = ""
+gnilc_directory = "/n/sgraraid/filaments/data/filterInfo_PlanckHerschel/"
 # *************************************************************************
 
 """
@@ -39,7 +39,7 @@ List the full path to the file here
 ***************************************************************************
 """
 # *************************************************************************
-planck_directory = "/home/ramsey/Documents/Research/Filaments/HFI_stuff/"
+planck_directory = "/n/sgraraid/filaments/data/filterInfo_PlanckHerschel/"
 # *************************************************************************
 
 """
@@ -55,7 +55,7 @@ Place them all in the same directory & put the path to the directory here.
 ***************************************************************************
 """
 # *************************************************************************
-herschel_bandpass_directory = "/home/ramsey/Documents/Research/Filaments/Herschel_bands/"
+herschel_bandpass_directory = "/n/sgraraid/filaments/data/filterInfo_PlanckHerschel/"
 # *************************************************************************
 
 # -------------------------------------------------------------------------

@@ -300,6 +300,11 @@ class HEALPix2FITS:
         # Now project the HEALPix map using the CartesianProj
         self._intermediate = self._projection.projmap(source_hp, vec2pix_func)
 
+    def pop_intermediate(self):
+        intermediate = self._intermediate
+        self._intermediate = None
+        return intermediate
+
     def intermediate_to_target(self, intermediate=None, method='nearest'):
         """
         Interpolate the self.intermediate image to the target FITS image grid.
@@ -481,7 +486,7 @@ def prepare_convolution(w, beam, data_shape):
     sigma_arcmin = beam / 2.35  # FWHM to standard deviation
     ij_arrays = [None, None]
     for x in range(2):
-        x_array = np.arange(data_shape[x]) - data_shape[x]//2
+        x_array = np.arange(data_shape[x], dtype=float) - data_shape[x]//2
         x_array *= dthetas[x]
         y_array = np.exp(-x_array * x_array / (2 * sigma_arcmin * sigma_arcmin))
         y_array = y_array / np.trapz(y_array)

@@ -2,6 +2,7 @@ import numpy as np
 from astropy.io import fits
 import utils_regrid as rgu
 import path_config as cfg
+import calc_pacs_offset as cpo
 import matplotlib.pyplot as plt
 
 
@@ -17,14 +18,15 @@ def test_healpy_regrid():
     TEST PASSED by visual inspection
     """
     # set some paths (laptop local)
-    directory = "/home/ramsey/Documents/Research/Filaments/"
-    hp_fn = directory + "HFI_SkyMap_857-field-Int_2048_R3.00_full.fits"
-    fits_fn = directory + "HFI_SkyMap_857_resSPIRE350.fits"
+    hp_fn = cfg.PlanckConfig.light_map_filename('F353')
+    fits_fn = "/n/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/"
+    fits_fn += "PACS160um-image-remapped.fits"
     # open the healpix map with the convenience function
     m = rgu.open_healpix(hp_fn, nest=False)
     # get fits
     data, head = fits.getdata(fits_fn, header=True)
     result = rgu.healpix2fits(m, data, head, method='scipy')
+    result = cfg.PlanckConfig.unit_conversion('F353', result)
     plt.imshow(result, origin='lower')
     plt.show()
 
@@ -51,5 +53,14 @@ def test_bandpass_config():
     plt.show()
 
 
+def test_predict():
+    pacs_fn = "/n/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/"
+    pacs_fn += "PACS160um-image-remapped.fits"
+    # pdata, phead = fits.getdata(pacs_fn, header=True)
+    model = cpo.GNILCModel(pacs_fn)
+    model.accumulate_masks()
+    model.difference_to_target()
+    return model
+
 if __name__ == "__main__":
-    test_bandpass_config()
+    model = test_predict()

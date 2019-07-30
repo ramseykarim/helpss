@@ -74,15 +74,10 @@ def flux_helper(n_start, n_end, frequency, weight, normalization, temperature, t
     :return: flux for the given filter profile (weight) between axis=1 n_start:n_end
     """
     result = np.empty((frequency.shape[0], n_end - n_start, temperature.shape[2]))
-
-    def crop(array):
-        # Crop along one of the image axes
-        return array[:, n_start:n_end, :]
-
-    result[:] = B(crop(temperature), frequency)
-    result *= tau
+    result[:] = B(temperature[:, n_start:n_end, :], frequency)
+    result *= tau[:, n_start:n_end, :]
     # 353 GHz is the frequency referenced by the opacity map
-    result *= (frequency / 353 * 1e9) ** crop(beta)
+    result *= (frequency / (353 * 1e9)) ** beta[:, n_start:n_end, :]
     result *= weight
     result = np.sum(result, axis=0) / normalization
     # 10^20 to convert from SI to MJy/sr
@@ -109,13 +104,17 @@ def calculate_gnilc_flux(band_center, frequency, weight, temperature, tau, beta)
     # noinspection PyPep8Naming
     MiB = 1024 * 1024
     # noinspection PyPep8Naming
-    cube_size = frequency.size * temperature.size * 8
+    cube_size = frequency.size * temperature.size * 8 / MiB
     is_large = cube_size > 512
     if is_large:
         row_step = 128 * MiB // (frequency.size * temperature.shape[2] * 8)
         n_rows, n_cols = temperature.shape[1], temperature.shape[2]
         n_steps = n_rows // row_step
         n_rows_leftover = n_rows % row_step
+        print("CALCULATING FLUX IN BLOCKS")
+        print("ROWS: %d. LEFTOVER: %d. Need %d steps." % (n_rows, n_rows_leftover, n_steps))
+        print("Total size: %d x %d x %d x 64 bits = %s" % (frequency.shape[0], n_rows, n_cols, sizeof_fmt(frequency.shape[0] * n_rows * n_cols * 8)))
+        print("Step size: %d x %d x %d x 64 bits = %s" % (frequency.shape[0], row_step, n_cols, sizeof_fmt(frequency.shape[0] * row_step * n_cols * 8)))
         result = np.zeros((n_rows, n_cols))
         for i in range(n_steps):
             n_start, n_end = i * row_step, (i + 1) * row_step
@@ -123,7 +122,9 @@ def calculate_gnilc_flux(band_center, frequency, weight, temperature, tau, beta)
                                                    frequency, weight,
                                                    normalization,
                                                    temperature, tau, beta)
+            print("-> array[0:%d, %d:%d, 0:%d]\r" % (frequency.shape[0], n_start, n_end, n_cols), end="")
         n_start, n_end = n_steps * row_step, n_steps * row_step + n_rows_leftover
+        print("-> array[0:%d, %d:%d, 0:%d]" % (frequency.shape[0], n_start, n_end, n_cols))
         result[n_start:n_end, :] = flux_helper(n_start, n_end,
                                                frequency, weight,
                                                normalization,

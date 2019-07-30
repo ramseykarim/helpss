@@ -13,23 +13,28 @@ class GNILCModel:
 
     def __init__(self, target_filename, target_bandpass='PACS160um', extension=0):
         target_data, target_head = fits_getdata(target_filename, ext=extension, header=True)
+        band_dictionary_template = {'F545': None, 'F857': None}
         self.target_data = target_data
         self.target_wcs = WCS(target_head)
         self.target_bandpass_stub = target_bandpass
-        self.projector = rgu.HEALPix2FITS(target_data, target_head)
+        self.projector = rgu.HEALPix2FITS(target_data, target_head, pixel_scale_arcsec=300)
         self.T = self.load_component('Temperature')
         self.beta = self.load_component('Spectral-Index')
         self.tau = self.load_component('Opacity')
-        self.masks = {'F353': None, 'F545': None, 'F857': None}
+        self.observed_planck_fluxes = band_dictionary_template.copy()
+        self.predicted_planck_fluxes = band_dictionary_template.copy()
+        self.ratios = band_dictionary_template.copy()
+        self.masks = band_dictionary_template.copy()
         self.mask = None
         self.difference = None
-        self.accumulate_masks()
-        self.difference_to_target()
+        # self.accumulate_masks()
+        # self.difference_to_target()
 
     @plu.shape_of_component
     def load_component(self, stub):
         component_filename = cfg.PlanckConfig.component_filename(stub)
-        return self.projector.healpix_to_intermediate(rgu.open_healpix(component_filename))
+        self.projector.healpix_to_intermediate(rgu.open_healpix(component_filename))
+        return self.projector.pop_intermediate()
 
     @plu.shape_of_frequency
     def load_bandpass(self, stub):
@@ -45,17 +50,21 @@ class GNILCModel:
     def generate_planck_ratio_mask(self, planck_band_stub):
         planck_map_fn = cfg.PlanckConfig.light_map_filename(planck_band_stub)
         observed_planck_flux = self.projector.project(rgu.open_healpix(planck_map_fn))
-        observed_planck_flux = cfg.PlanckConfig.unit_conversion(planck_band_stub, observed_planck_flux)
+        observed_planck_flux = cfg.PlanckConfig.unit_conversion(planck_band_stub,
+            observed_planck_flux)
         predicted_planck_flux = self.predict_flux_in_band(planck_band_stub)
         ratio = (observed_planck_flux / predicted_planck_flux)
+        # Save these maps as diagnostics
+        self.observed_planck_fluxes[planck_band_stub] = observed_planck_flux
+        self.predicted_planck_fluxes[planck_band_stub] = predicted_planck_flux
+        self.ratios[planck_band_stub] = ratio
         # Constrain ratio to be within 10%
-        mask = (ratio > 0.9) & (ratio < 1.1)
-        return mask
+        self.masks[planck_band_stub] = (ratio > 0.9) & (ratio < 1.1)
 
     def accumulate_masks(self):
         for band_stub in self.masks:
-            self.masks[band_stub] = self.generate_planck_ratio_mask(band_stub)
-        self.mask = np.all(np.array(self.masks.values()), axis=0)
+            self.generate_planck_ratio_mask(band_stub)
+        self.mask = np.all(np.array(list(self.masks.values())), axis=0)
 
     def difference_to_target(self):
         # Assume this map to be at GNILC resolution
