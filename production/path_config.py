@@ -1,6 +1,7 @@
 from scipy.constants import c
 import numpy as np
 from astropy.io.fits import open as fits_open
+
 """
 Configuration module for file paths and related items, some file I/O
 
@@ -8,7 +9,7 @@ The items in this file should be changed by the user (probably Lee) when appropr
 The items you will most likely change (at top of this file):
 
 gnilc_directory
-rimo_directory
+planck_directory
 herschel_bandpass_directory
 """
 
@@ -31,13 +32,14 @@ gnilc_directory = ""
 ***************************************************************************
 PLANCK HFI RIMO
 
-Name/path to the Planck HFI Reduced Instrument Model (RIMO)
+Name/path to the Planck HFI Reduced Instrument Model (RIMO).
+Put the 353, 545, and 857 GHz maps in this directory too.
 List the full path to the file here
 ***************************************************************************
 ***************************************************************************
 """
 # *************************************************************************
-rimo_directory = "/home/ramsey/Documents/Research/Filaments/HFI_stuff/"
+planck_directory = "/home/ramsey/Documents/Research/Filaments/HFI_stuff/"
 # *************************************************************************
 
 """
@@ -78,31 +80,52 @@ herschel_bandpass_directory = "/home/ramsey/Documents/Research/Filaments/Hersche
 # These are the only filters this code supports
 hfi_bandpass_stubs = ("F100", "F143", "F217", "F353", "F545", "F857")
 herschel_bandpass_stubs = ("PACS160um", "SPIRE250um", "SPIRE350um", "SPIRE500um")
+# Herschel_beam_sizes in arcseconds
+herschel_beam_sizes = (11.8, 18.2, 24.9, 36.3)
+# HFI beam sizes in arcminutes
+hfi_beam_sizes = (9.66, 7.27, 5.01, 4.86, 4.84, 4.63,)
+# GNILC effective resolution in arcminutes
+gnilc_resolution = 5
 # FITS extension for each HFI band in the HFI RIMO
 hfi_bandpass_indices = (3, 4, 5, 6, 7, 8)
+# HFI observation filenames (valid only for 353-857)
+hfi_maps = (
+    None, None, None, "HFI_SkyMap_353-psb-field-IQU_2048_R3.00_full.fits",
+    "HFI_SkyMap_545-field-Int_2048_R3.00_full.fits",
+    "HFI_SkyMap_857-field-Int_2048_R3.00_full.fits",
+)
+# Unit conversions for HFI bands (some reference CMB)
+hfi_unit_conversions = (244.1, 371.74, 483.690, 287.450, 1, 1)
 # Bandpass centers for Herschel (wavelength, Angstroms)
 herschel_bandpass_centers = (1539451.3, 2471245.1, 3467180.4, 4961067.7)
+# GNILC component names
+gnilc_components = ('Temperature', 'Spectral-Index', 'Opacity')
 
 
-def if_bandpass_valid(bandpass_stub_list):
+def if_contained_in(valid_stub_list):
     """
     This is honestly just me having fun with decorators.
-    :param bandpass_stub_list: List of valid bandpass "stub" names.
+    :param valid_stub_list: List of valid bandpass "stub" names.
+        Or any list that the input must be from.
     :return: Decorator that limits its function to arguments within
         this bandpass_stub_list and throws an error if not.
     """
-    def if_bandpass_valid_decorator(func_to_decorate):
+
+    def if_contained_decorator(func_to_decorate):
         # Nested decorator so the original decorator can take arguments!
-        def decorated_function(bandpass_stub):
-            # Some function of a given bandpass, with the stub as the arg
-            if bandpass_stub in bandpass_stub_list:
-                return func_to_decorate(bandpass_stub)
+        def decorated_function(*args):
+            # Some function of a given bandpass, with the stub as the first arg
+            arg_stub = args[0]
+            if arg_stub in valid_stub_list:
+                return func_to_decorate(*args)
             else:
-                basic_message = "is not a valid bandpass stub."
-                extra_info = f"Supported options are: {bandpass_stub_list}"
-                raise RuntimeError(f"{bandpass_stub} {basic_message} {extra_info}")
+                basic_message = "is not a valid stub."
+                extra_info = f"Supported options are: {valid_stub_list}"
+                raise RuntimeError(f"{arg_stub} {basic_message} {extra_info}")
+
         return decorated_function
-    return if_bandpass_valid_decorator
+
+    return if_contained_decorator
 
 
 def angstroms_to_hz(x_angstroms):
@@ -132,15 +155,22 @@ class PlanckConfig:
     Doesn't need to be instanced; everything should be a class variable
     """
 
-    # Unlikely that you need to change these
-    gnilc_temp = gnilc_directory + "COM_CompMap_Dust-GNILC-Model-Temperature_2048_R2.00.fits"
-    gnilc_tau = gnilc_directory + "COM_CompMap_Dust-GNILC-Model-Opacity_2048_R2.00.fits"
-    gnilc_beta = gnilc_directory + "COM_CompMap_Dust-GNILC-Model-Spectral-Index_2048_R2.00.fits"
+    @staticmethod
+    @if_contained_in(gnilc_components)
+    def component_filename(component_stub):
+        """
+        Get one of the Planck GNILC dust model component maps
+        :param component_stub:
+        :return:
+        """
+        return "{}COM_CompMap_Dust-GNILC-Model-{}_2048_R2.00.fits".format(
+            gnilc_directory, component_stub
+        )
 
-    hfi_rimo = rimo_directory + "HFI_RIMO_R3.00.fits"
+    hfi_rimo = planck_directory + "HFI_RIMO_R3.00.fits"
 
     @staticmethod
-    @if_bandpass_valid(hfi_bandpass_stubs)
+    @if_contained_in(hfi_bandpass_stubs)
     def bandpass_profile(bandpass_stub):
         """
         Load bandpass profile from the HFI RIMO
@@ -168,7 +198,7 @@ class PlanckConfig:
         return frequency_hz, weight
 
     @staticmethod
-    @if_bandpass_valid(hfi_bandpass_stubs)
+    @if_contained_in(hfi_bandpass_stubs)
     def bandpass_center(bandpass_stub):
         """
         Calculate bandpass center for HFI bands
@@ -176,6 +206,38 @@ class PlanckConfig:
         :return: band center (Hz)
         """
         return float(bandpass_stub[1:]) * 1e9
+
+    @staticmethod
+    @if_contained_in(hfi_bandpass_stubs)
+    def beam_size(bandpass_stub):
+        """
+        Get beam size for HFI band
+        :param bandpass_stub: HFI band stub
+        :return: beam size in arcminutes
+        """
+        return hfi_beam_sizes[hfi_bandpass_stubs.index(bandpass_stub)]
+
+    @staticmethod
+    @if_contained_in(hfi_bandpass_stubs)
+    def unit_conversion(bandpass_stub, array):
+        """
+        Some HFI bands use CMB reference units.
+        This function converts to MJy/sr
+        :param bandpass_stub: HFI band stub
+        :param array: map to be converted to MJy/sr
+        :return: map in MJy/sr
+        """
+        return array * hfi_unit_conversions[hfi_bandpass_stubs.index(bandpass_stub)]
+
+    @staticmethod
+    @if_contained_in(tuple(b for b in hfi_bandpass_stubs if b))
+    def light_map_filename(bandpass_stub):
+        """
+        Filename for Planck HFI observed light maps
+        :param bandpass_stub: HFI band stub
+        :return: file path to map
+        """
+        return f"{planck_directory}{hfi_maps[hfi_bandpass_stubs.index(bandpass_stub)]}"
 
 
 class HerschelConfig:
@@ -185,7 +247,7 @@ class HerschelConfig:
     """
 
     @staticmethod
-    @if_bandpass_valid(herschel_bandpass_stubs)
+    @if_contained_in(herschel_bandpass_stubs)
     def bandpass_profile(bandpass_stub):
         """
         Load bandpass profile from saved versions of the Herschel profiles
@@ -198,7 +260,7 @@ class HerschelConfig:
         return frequency_hz, weight
 
     @staticmethod
-    @if_bandpass_valid(herschel_bandpass_stubs)
+    @if_contained_in(herschel_bandpass_stubs)
     def bandpass_center(bandpass_stub):
         """
         Calculate bandpass center for Herschel bands
@@ -206,6 +268,16 @@ class HerschelConfig:
         :return: band center (Hz)
         """
         return angstroms_to_hz(herschel_bandpass_centers[herschel_bandpass_stubs.index(bandpass_stub)])
+
+    @staticmethod
+    @if_contained_in(herschel_bandpass_stubs)
+    def beam_size(bandpass_stub):
+        """
+        Get beam size for Herschel band
+        :param bandpass_stub: Herschel band stub
+        :return: beam size in arcminutes
+        """
+        return herschel_beam_sizes[herschel_bandpass_stubs.index(bandpass_stub)] / 60
 
 
 """

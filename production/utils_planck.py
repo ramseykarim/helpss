@@ -1,7 +1,5 @@
 import numpy as np
 from scipy.constants import k, h, c
-from astropy.io import fits
-import path_config as cfg
 
 
 def sizeof_fmt(num, suffix='B'):
@@ -134,14 +132,3 @@ def calculate_gnilc_flux(band_center, frequency, weight, temperature, tau, beta)
         result = flux_helper(0, temperature.shape[1], frequency, weight,
                              normalization, temperature, tau, beta)
     return result
-
-
-# todo fix this next time
-class GNILCModel:
-
-    def __init__(self, target_data, target_head):
-        self.target_data = target_data
-        self.target_head = target_head
-
-    def regrid_component(self):
-        pass

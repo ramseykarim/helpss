@@ -300,7 +300,7 @@ class HEALPix2FITS:
         # Now project the HEALPix map using the CartesianProj
         self._intermediate = self._projection.projmap(source_hp, vec2pix_func)
 
-    def intermediate_to_target(self, method='nearest'):
+    def intermediate_to_target(self, intermediate=None, method='nearest'):
         """
         Interpolate the self.intermediate image to the target FITS image grid.
         Assumes the intermediate image is on the CartesianProj grid;
@@ -311,6 +311,7 @@ class HEALPix2FITS:
             interpn does not need to interpolate to a gridded target; this is good
             for our unstructured target (we don't want to assume RA/DEC are uniform)
             (though there is evidence that RA/DEC are uniform...)
+        :param intermediate: overrides "self.intermediate"
         :param method: type of interpolation used by scipy.interpolate.interpn
             Default is 'nearest', since that is the most honest way to project
             poor-resolution/pixel scale data onto a finer grid, in my opinion.
@@ -318,9 +319,11 @@ class HEALPix2FITS:
         :return: The data from the HEALPix source interpolated
             onto the target FITS grid.
         """
+        if intermediate is None:
+            intermediate = self._intermediate
         # Interpolate. Invert the longitude order to be strictly increasing.
         interp_values_list = interpn((self._b_src, self._l_src[::-1]),
-                                     self._intermediate[:, ::-1],
+                                     intermediate[:, ::-1],
                                      self._bl_target_pairs, method=method)
         interpolated_data = assign_to_pixels(interp_values_list,
                                              self._pixel_list,
@@ -462,3 +465,51 @@ def regrid_fits(source_array, source_head, target_array, target_head,
     interpolated_data = assign_to_pixels(interp_values_list, t_pixel_list,
                                          target_array.shape)
     return interpolated_data
+
+
+# noinspection SpellCheckingInspection
+def prepare_convolution(w, beam, data_shape):
+    # Given a WCS object and beam FWHMs in arcminutes,
+    #  returns the Gaussian needed to convolve image by this kernel
+    # Gaussian is returned in smaller array that includes contributions out to 5sigma
+    # Find pixel scale, in arcminutes
+    dtheta_dpix_i = np.sqrt(
+        np.sum([(x2 - x1) ** 2 for (x1, x2) in zip(w.wcs_pix2world(0, 0, 0), w.wcs_pix2world(0, 1, 0))])) * 60
+    dtheta_dpix_j = np.sqrt(
+        np.sum([(x2 - x1) ** 2 for (x1, x2) in zip(w.wcs_pix2world(0, 0, 0), w.wcs_pix2world(1, 0, 0))])) * 60
+    dthetas = [dtheta_dpix_i, dtheta_dpix_j]
+    sigma_arcmin = beam / 2.35  # FWHM to standard deviation
+    ij_arrays = [None, None]
+    for x in range(2):
+        x_array = np.arange(data_shape[x]) - data_shape[x]//2
+        x_array *= dthetas[x]
+        y_array = np.exp(-x_array * x_array / (2 * sigma_arcmin * sigma_arcmin))
+        y_array = y_array / np.trapz(y_array)
+        ij_arrays[x] = y_array
+    i, j = ij_arrays
+    convolution_beam = i[:, np.newaxis] * j[np.newaxis, :]
+    return convolution_beam
+
+
+def convolve_helper(image, kernel):
+    ft = np.fft.fft2(image) * np.fft.fft2(kernel)
+    result = np.fft.ifft2(ft)
+    return np.real(np.fft.fftshift(result))
+
+
+def convolve_properly(image, kernel):
+    # Preserve NaNs
+    # also mitigate edge effects / normalization from NaN correction
+    image = image.copy()
+    nan_mask = np.isnan(image)
+    image[nan_mask] = 0.
+    result = convolve_helper(image, kernel)
+    # now account for edge effects / normalization
+    image[~nan_mask] = 1.
+    norm = convolve_helper(image, kernel)
+    image[:] = 1.
+    norm /= convolve_helper(image, kernel)
+    result /= norm
+    result[nan_mask] = np.nan
+    return result
+
