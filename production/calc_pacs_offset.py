@@ -44,24 +44,22 @@ class GNILCModel:
         self.target_wcs = WCS(target_head)
         self.target_bandpass_stub = target_bandpass
         self.projector = rgu.HEALPix2FITS(target_data, target_head, pixel_scale_arcsec=300)
-        # self.T = self.load_component('Temperature')
-        # self.beta = self.load_component('Spectral-Index')
-        # self.tau = self.load_component('Opacity')
-        # self.observed_planck_fluxes = band_dictionary_template.copy()
-        # self.predicted_planck_fluxes = band_dictionary_template.copy()
-        # self.ratios = band_dictionary_template.copy()
-        # self.masks = band_dictionary_template.copy()
-        # self.predicted_target_flux = None
-        # self.mask = None
-        # self.difference = None
-        # fixme delete below; testing purposes
-        self.predicted_target_flux = self.target_data + 45 + np.random.normal(size=target_data.shape)
-        self.mask = self.target_data < 30
-        self.difference = self.predicted_target_flux - self.target_data
-        # fixme delete above
+        self.T = self.load_component('Temperature')
+        self.beta = self.load_component('Spectral-Index')
+        self.tau = self.load_component('Opacity')
+        # Declare variables to be set within functions
+        self.observed_planck_fluxes = GNILCModel.band_dictionary_template.copy()
+        self.predicted_planck_fluxes = GNILCModel.band_dictionary_template.copy()
+        self.ratios = GNILCModel.band_dictionary_template.copy()
+        self.masks = GNILCModel.band_dictionary_template.copy()
+        self.predicted_target_flux = None
+        self.mask = None
+        self.difference = None
         self.stats = {}
-        # self.accumulate_masks()
-        # self.difference_to_target()
+        # Basic operations with reusable results
+        self.accumulate_masks()
+        self.difference_to_target()
+        self.offset_statistics()
 
     @plu.shape_of_component
     def load_component(self, stub):
@@ -267,6 +265,26 @@ class GNILCModel:
         plt.colorbar()
         plt.title("Mask for Difference Image; Included if True (1)")
 
+    def get_offset(self, no_diagnostic=False, full_diagnostic=False):
+        """
+        Calculate and return the offset.
+        Plot the histogram diagnostic unless no_diagnostic is True.
+        Plot the flux and mask diagnostics if full_diagnostic is True
+            (and no_diagnostic is False)
+        :param no_diagnostic: True if you do NOT want ANYTHING to plot
+        :param full_diagnostic: True if you want THREE plots
+        :return: offset calibration needed by target, in MJy/sr
+        """
+        offset = self.calculate_offset()
+        print("OFFSET: {:.2f} MJy/sr".format(offset))
+        if not no_diagnostic:
+            self.diagnostic_flux_map()
+            if full_diagnostic:
+                self.diagnostic_flux_map()
+                self.diagnostic_mask()
+            plt.show()
+        return offset
+
 
 def visual_min_max(array):
     """
@@ -288,8 +306,3 @@ def gaussian(x, mu, sigma, amplitude):
     coefficient = amplitude / (np.sqrt(2 * np.pi) * sigma)
     exponent = -((x - mu) ** 2 / (2 * sigma * sigma))
     return coefficient * np.exp(exponent)
-
-
-def calculate_pacs_offset(pacs_filename):
-    model = GNILCModel(pacs_filename)
-    return model.calculate_offset()
