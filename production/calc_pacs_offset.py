@@ -214,7 +214,7 @@ class GNILCModel:
         Plot the difference image histogram with overlaid Gaussian fit.
         """
         mode, sigma, amplitude = self.stats['gauss_fit']
-        plt.figure("Difference Histogram")
+        plt.figure("Difference Histogram", figsize=(8, 5))
         # Plot the histogram itself
         plt.plot(*self.stats['hist_xy'], '-', color=(.1, .5, .1),
                  linewidth=3, label="$F_{GNILC} - F_{obs}$")
@@ -243,7 +243,7 @@ class GNILCModel:
         Plot the predicted and observed flux.
         The observed flux is shown at native, not GNILC, resolution.
         """
-        fig = plt.figure("Predicted & Observed Flux", figsize=(7, 14))
+        fig = plt.figure("Predicted & Observed Flux", figsize=(14, 7))
         # First plot predicted data
         ax = plt.subplot(121)
         # Find appropriate color limits
@@ -282,9 +282,11 @@ class GNILCModel:
         :return: offset calibration needed by target, in MJy/sr
         """
         offset = self.calculate_offset()
-        print("="*21)
-        print("OFFSET: {:.2f} MJy/sr".format(offset))
-        print("="*21)
+        print("="*25)
+        print("="*25)
+        print("= OFFSET: {:.2f} MJy/sr =".format(offset))
+        print("="*25)
+        print("="*25)
         if not no_diagnostic:
             self.diagnostic_difference_histogram()
             if full_diagnostic:
