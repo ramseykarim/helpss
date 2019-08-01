@@ -1,18 +1,16 @@
 from astropy.io import fits
 
 
-def add_offset(offset, filename, savename=None, savepath="", extension=0):
+def add_offset(offset, filename, savename=None, extension=0):
     """
     Add a fixed offset to a FITS image. Will only save a single extension.
     Does not overwrite the original (unless savename==filename)
+    Will save to the same directory as filename.
     :param offset: int or float additive offset
     :param filename: file path to FITS to modify
     :param savename: file path to which to write the modified data
         Default is to add "-plus######" right before ".fits"
         Will overwrite anything already saved as savename
-    :param savepath: path to save file. You could specify the path
-        within savename, but this allows you to use the default savename.
-        Defaults to current directory (empty string).
     :param extension: FITS extension of data to read; default is 0
     """
     # Make tidy offset string based on float vs int
@@ -21,7 +19,7 @@ def add_offset(offset, filename, savename=None, savepath="", extension=0):
         # Add "-plus######.fits" for a default
         filename_first, fits_stub = filename[:-5], filename[-5:]
         assert fits_stub == ".fits"
-        savename = f"{savepath}{filename_first}-plus{offset_str}{fits_stub}"
+        savename = f"{filename_first}-plus{offset_str}{fits_stub}"
     with fits.open(filename) as hdul:
         data = hdul[extension].data
         head = hdul[extension].header
@@ -37,14 +35,14 @@ def add_offset(offset, filename, savename=None, savepath="", extension=0):
 
 
 def add_systematic_error(flux_fraction, error_filename, flux_filename,
-                         error_extension=0, flux_extension=0,
-                         savename=None, savepath=""):
+                         error_extension=0, flux_extension=0, savename=None):
     """
     Adds the specified fraction of the flux map to the error map as
         uncorrelated systematic uncertainty.
     Specify the flux fraction as a decimal fraction (NOT percent)
     Does not overwrite the existing error map unless you specify
         the original error map's name as the savename here.
+    Will save to the same directory as filename.
     :param flux_fraction: decimal fraction of flux to be added to error
         NOT PERCENTAGE. 1.5% should be input here as 0.015
     :param error_filename: file path to error map to modify.
@@ -56,9 +54,6 @@ def add_systematic_error(flux_fraction, error_filename, flux_filename,
     :param flux_extension: FITS extension where flux map is found. default=0
     :param savename: file path to which to write the modified error map
         Default is to add "-plus#.#pct" right before ".fits"
-    :param savepath: path to save file. You could specify the path
-        within savename, but this allows you to use the default savename.
-        Defaults to current directory (empty string).
     """
     # Make flux percentage string
     pct_string = "{:03.1f}pct".format(flux_fraction*100)
@@ -66,7 +61,7 @@ def add_systematic_error(flux_fraction, error_filename, flux_filename,
         # Add "-plus###pct.fits" for a default
         filename_first, fits_stub = error_filename[:-5], error_filename[-5:]
         assert fits_stub == ".fits"
-        savename = f"{savepath}{filename_first}-plus{pct_string}{fits_stub}"
+        savename = f"{filename_first}-plus{pct_string}{fits_stub}"
     with fits.open(error_filename) as hdul:
         error = hdul[error_extension].data
         head = hdul[error_extension].header
