@@ -243,7 +243,7 @@ class GNILCModel:
         Plot the predicted and observed flux.
         The observed flux is shown at native, not GNILC, resolution.
         """
-        fig = plt.figure("Predicted & Observed Flux")
+        fig = plt.figure("Predicted & Observed Flux", figsize=(7, 14))
         # First plot predicted data
         ax = plt.subplot(121)
         # Find appropriate color limits
@@ -282,9 +282,11 @@ class GNILCModel:
         :return: offset calibration needed by target, in MJy/sr
         """
         offset = self.calculate_offset()
+        print("="*21)
         print("OFFSET: {:.2f} MJy/sr".format(offset))
+        print("="*21)
         if not no_diagnostic:
-            self.diagnostic_flux_map()
+            self.diagnostic_difference_histogram()
             if full_diagnostic:
                 self.diagnostic_flux_map()
                 self.diagnostic_mask()
