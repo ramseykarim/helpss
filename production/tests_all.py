@@ -79,5 +79,5 @@ def test_add_flux_mod_error():
 
 
 if __name__ == "__main__":
-    # test_predict()
-    test_add_flux_mod_error()
+    # test_add_flux_mod_error()
+    test_predict()
