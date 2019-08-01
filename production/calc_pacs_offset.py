@@ -21,6 +21,12 @@ class GNILCModel:
         mask where the GNILC model can be trusted. This  mask is calculated here
         as well by predicting Planck HFI fluxes and comparing back to the observed
         HFI flux used to generate the GNILC model.
+
+        EXAMPLE USE (basic):
+        >>> model = GNILCModel(pacs_filename)
+        >>> model.get_offset()
+        this will print the offset and show the histogram diagnostic plot
+
         :param target_args: either a filename (str) or a tuple(array, header)
             describing the target whose offset is sought.
             If filename, note the FITS extension argument (default 0)
