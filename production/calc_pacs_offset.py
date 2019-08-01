@@ -211,7 +211,7 @@ class GNILCModel:
         plt.figure("Difference Histogram")
         # Plot the histogram itself
         plt.plot(*self.stats['hist_xy'], '-', color=(.1, .5, .1),
-                 label="$F_{GNILC} - F_{obs}$")
+                 linewidth=3, label="$F_{GNILC} - F_{obs}$")
         curve_x = self.stats['hist_xy'][0]
         # Trim Gaussian fit x extent to 3 sigma to make it look better
         trim = 3 * sigma
