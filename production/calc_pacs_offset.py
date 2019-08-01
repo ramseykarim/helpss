@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io.fits import getdata as fits_getdata
 from astropy.wcs import WCS
+from scipy.interpolate import UnivariateSpline
 from scipy.optimize import curve_fit
 
 import utils_regrid as rgu
@@ -54,9 +55,6 @@ class GNILCModel:
         self.beta = self.load_component('Spectral-Index')
         self.tau = self.load_component('Opacity')
         # Declare variables to be set within functions
-        self.observed_planck_fluxes = GNILCModel.band_dictionary_template.copy()
-        self.predicted_planck_fluxes = GNILCModel.band_dictionary_template.copy()
-        self.ratios = GNILCModel.band_dictionary_template.copy()
         self.masks = GNILCModel.band_dictionary_template.copy()
         self.predicted_target_flux = None
         self.mask = None
@@ -124,10 +122,6 @@ class GNILCModel:
                                                                 observed_planck_flux)
         predicted_planck_flux = self.predict_flux_in_band(planck_band_stub)
         ratio = (observed_planck_flux / predicted_planck_flux)
-        # Save these maps as diagnostics
-        self.observed_planck_fluxes[planck_band_stub] = observed_planck_flux
-        self.predicted_planck_fluxes[planck_band_stub] = predicted_planck_flux
-        self.ratios[planck_band_stub] = ratio
         # Constrain ratio to be within 10% (and not Nan)
         self.masks[planck_band_stub] = ~np.isnan(ratio) & (ratio > 0.9) & (ratio < 1.1)
 
@@ -198,11 +192,26 @@ class GNILCModel:
         :return: the fit Gaussian mean, representing the mode of the histogram
         """
         # Set up the Gaussian fit to the histogram
+        peak_location, peak_val = self.stats['peak_mode'], self.stats['peak_val']
         # Default the standard deviation to 10; should be of that order
-        p0 = [self.stats['peak_mode'], 10, self.stats['peak_val']]
+        p0 = [peak_location, 10, peak_val]
+        x_to_fit = self.stats['bin_centers']
+        y_to_fit = self.stats['d_hist_edges'][0]
+        # We will try to fit above half-max to avoid bias from a noisy/uneven floor
+        # Find full-width half-max locations
+        try:
+            # Use spline to find roots of function sunk by half-max
+            spline = UnivariateSpline(x_to_fit, y_to_fit - peak_val/2, s=0)
+            r1, r2 = spline.roots()
+            mask_to_fit = (x_to_fit > r1) & (x_to_fit < r2)
+        except ValueError:
+            # Approximate roots by limiting function to above half max
+            # Depending on function shape, this may not be ideal. Assumes Gaussian.
+            print("spline fit estimate of histogram FWHM failed; approximating")
+            mask_to_fit = y_to_fit > peak_val/2
         # noinspection SpellCheckingInspection,PyTypeChecker
-        popt, pcov = curve_fit(gaussian, self.stats['bin_centers'],
-                               self.stats['d_hist_edges'][0], p0=p0)
+        popt, pcov = curve_fit(gaussian, x_to_fit[mask_to_fit],
+                               y_to_fit[mask_to_fit], p0=p0)
         # Save fitted Gaussian parameters to the stats dictionary
         self.stats['gauss_fit'] = popt
         # Return the mean of the Gaussian (more accurate mode of the distribution)
@@ -284,7 +293,7 @@ class GNILCModel:
         offset = self.calculate_offset()
         print("="*25)
         print("="*25)
-        print("= OFFSET: {:.2f} MJy/sr =".format(offset))
+        print("= OFFSET: {:6.2f} MJy/sr =".format(offset))
         print("="*25)
         print("="*25)
         if not no_diagnostic:
