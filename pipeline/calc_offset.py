@@ -13,7 +13,8 @@ import utils_planck as plu
 class GNILCModel:
     band_dictionary_template = {'F545': None, 'F857': None}
 
-    def __init__(self, *target_args, target_bandpass='PACS160um', extension=0):
+    def __init__(self, *target_args, target_bandpass='PACS160um', extension=0,
+        pixel_scale_arcsec=75):
         """
         Object representing the GNILC dust model and packaging its capability
         to predict flux in various instrument bands.
@@ -35,6 +36,11 @@ class GNILCModel:
             Must be one of the (Herschel) filters supported by this code
         :param extension: FITS extension of the data; relevant only if
             target_args gives a string file path
+        :param pixel_scale_arcsec: pixel scale (arcseconds) at which to
+            grid the HEALPix maps for the intermediate step. Defaults to
+            75 arcseconds, the Planck HFI pixel scale, and should be used
+            at that value. But, it can be increased to something like 300
+            for a faster test/debug run.
         """
         if len(target_args) == 1 and type(target_args[0]) == str:
             # String file path
@@ -50,7 +56,8 @@ class GNILCModel:
         self.target_data = target_data
         self.target_wcs = WCS(target_head)
         self.target_bandpass_stub = target_bandpass
-        self.projector = rgu.HEALPix2FITS(target_data, target_head, pixel_scale_arcsec=300)
+        self.projector = rgu.HEALPix2FITS(target_data, target_head,
+            pixel_scale_arcsec=pixel_scale_arcsec)
         self.T = self.load_component('Temperature')
         self.beta = self.load_component('Spectral-Index')
         self.tau = self.load_component('Opacity')
