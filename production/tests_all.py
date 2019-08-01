@@ -56,22 +56,15 @@ def test_bandpass_config():
 
 def test_predict():
     # OK for desktop
-    # pacs_fn = "/n/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/"
-    # pacs_fn += "PACS160um-image-remapped.fits"
-    # pdata, phead = fits.getdata(pacs_fn, header=True)
+    pacs_fn = "/n/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/"
+    pacs_fn += "PACS160um-image-remapped.fits"
+    pdata, phead = fits.getdata(pacs_fn, header=True)
     # OK for laptop
-    pacs_fn = "/home/ramsey/Documents/Research/Filaments/"
-    pacs_fn += "T4-absdiff-Per1J-plus045-pow-1000-0.1-1.80.fits"
-    pdata, phead = fits.getdata(pacs_fn, 11, header=True)
+    # pacs_fn = "/home/ramsey/Documents/Research/Filaments/"
+    # pacs_fn += "T4-absdiff-Per1J-plus045-pow-1000-0.1-1.80.fits"
+    # pdata, phead = fits.getdata(pacs_fn, 11, header=True)
     model = cpo.GNILCModel(pdata, phead)
-    model.offset_statistics()
-    print(model.calculate_offset())
-    model.diagnostic_flux_map()
-    model.diagnostic_difference_histogram()
-    model.diagnostic_mask()
-    plt.show()
-    # model.accumulate_masks()
-    # model.difference_to_target()
+    model.get_offset(full_diagnostic=True)
     return model
 
 
