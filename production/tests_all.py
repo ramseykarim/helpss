@@ -3,7 +3,7 @@ from astropy.io import fits
 from astropy.wcs import WCS
 import utils_regrid as rgu
 import path_config as cfg
-import calc_pacs_offset as cpo
+import calc_offset as cpo
 import matplotlib.pyplot as plt
 from modify_fits import add_offset, add_systematic_error
 
