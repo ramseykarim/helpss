@@ -5,6 +5,7 @@ import utils_regrid as rgu
 import path_config as cfg
 import calc_pacs_offset as cpo
 import matplotlib.pyplot as plt
+from modify_fits import add_offset, add_systematic_error
 
 
 """
@@ -68,5 +69,15 @@ def test_predict():
     return model
 
 
+def test_add_flux_mod_error():
+    pacs_path = "/n/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/"
+    pacs_fn = pacs_path+"PACS160um-image-remapped.fits"
+    add_offset(45, pacs_fn)
+    pacs_fn = pacs_path+"PACS160um-image-remapped-conv.fits"
+    pacs_err = pacs_path+"PACS160um-error-remapped-conv.fits"
+    add_systematic_error(0.015, pacs_err, pacs_fn)
+
+
 if __name__ == "__main__":
-    model = test_predict()
+    # test_predict()
+    test_add_flux_mod_error()

@@ -223,7 +223,7 @@ class GNILCModel:
         Plot the difference image histogram with overlaid Gaussian fit.
         """
         mode, sigma, amplitude = self.stats['gauss_fit']
-        plt.figure("Difference Histogram", figsize=(8, 5))
+        plt.figure("Difference Histogram", figsize=(9, 5.5))
         # Plot the histogram itself
         plt.plot(*self.stats['hist_xy'], '-', color=(.1, .5, .1),
                  linewidth=3, label="$F_{GNILC} - F_{obs}$")
