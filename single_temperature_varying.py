@@ -7,8 +7,8 @@ from math import ceil
 from scipy.signal import convolve2d
 
 
-per1_dir = "../"
 per1_dir = "/n/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/"
+per1_dir = "../"
 
 soln_5pcterr = "T4-absdiff-Per1J-3param-plus045-plus05.0pct-cpow-1000-0.1-2.10hpow-1000-0.1-1.80-bcreinit-Th15.95-Nh5E19,2E22.fits"
 soln_2p_5pcterr = "T4-absdiff-Per1J-plus045-plus05.0pct-pow-1000-0.1-1.80.fits"
@@ -59,6 +59,16 @@ def convolve_properly(image, kernel):
     result[nanmask] = np.nan
     return result
 
+def convolve_from_source(coordinates_to_fill, source_image, kernel):
+    """
+    HEY there's two ways to do this
+    1) manually loop thru points and find source contribution
+    2) FFT convolve, normalize, and mask out the stuff that doesn't matter
+    it's unclear which of these will actually take less time. we'll have to...
+    # TODO: TRY BOTH AND COMPARE!
+    """
+    pass
+
 
 def fitsopen(fn):
     return fits.open(per1_dir+fn)
@@ -90,7 +100,7 @@ def test_convolve_T():
     T, w = get_T_wcs(soln_2p_5pcterr)
     new_beam = cimg.bandpass_beam_sizes['SPIRE500um'] / np.sqrt(2)
     conv_beam = prepare_convolution(w, new_beam)
-    convolved_img = convolve_properly(T, conv_beam)    
+    convolved_img = convolve_properly(T, conv_beam)
     fig, axes = plt.subplots(ncols=2, nrows=1, sharex=True, sharey=True)
     p = axes[1].imshow(convolved_img, origin='lower', vmin=13, vmax=19)
     fig.colorbar(p, ax=axes[1], orientation='horizontal')
@@ -150,28 +160,30 @@ def test_filter_conv_N():
     fig.colorbar(p, ax=axes[1, 1], **axkwarg)
     plt.show()
 
-
-def inpaint_mask():
-    # returns (ipmask, validmask)
-    # ipmask is true where data needs to be inpainted
-    # validmask is true where data is valid (not nan)
-    with fitsopen(soln_2p_5pcterr) as hdul:
-        T = hdul[1].data
-        N = hdul[3].data
-        w = WCS(hdul[1].header)
-    nanmask = np.isnan(T)
+def convolve_Herschel_maps(T, N, w):
+    """
+    T is temperature map, N is column density map
+    T, N are already convolved up a little bit
+    w is WCS object from WCS(header)
+    returns (T convolved, N convolved)
+    """
     new_beam = cimg.bandpass_beam_sizes['SPIRE500um'] / np.sqrt(2)
     conv_beam = prepare_convolution(w, new_beam)
     T_conv = convolve_properly(T, conv_beam)
     N_conv = convolve_properly(N, conv_beam)
-    mask_N = (N_conv > 1.5e21) # this is what we want to inpaint
+    return T_conv, N_conv
+
+def inpaint_mask(T, N):
+    """
+    T is temperature map, N is column density map
+    T, N are already convolved up a little bit
+    returns (ipmask, validmask)
+    ipmask is true where data needs to be inpainted
+    validmask is true where data is valid (not nan)
+    """
+    nanmask = np.isnan(T)
+    mask_N = (N > 1.5e21) # this is what we want to inpaint
     return mask_N, ~nanmask
-    T_conv[~mask_N] = np.nan
-    plt.imshow(T_conv, origin='lower', vmin=13, vmax=19)
-    plt.show()
-    # take the masked T_conv map and fill in the internal nans
-    # don't fill in the nans outside (nanmask)
-    pass
 
 
 def boolean_edges(mask):
@@ -203,22 +215,34 @@ def boolean_edges(mask):
             stmt = "dst{:s} = dst{:s} + src{:s}".format(stmt_l, stmt_l, stmt_r)
             print(stmt)
             exec(stmt, {}, {"dst": border_count, "src": mask})
-    # at this point, can add 
+    # at this point, can add
     return border_count.astype(bool) ^ mask
 
 
+def paint_border(border_mask, source_mask, source_image):
+    """
+    border_mask should be true at this current border to be inpainted
+    source_mask should be true anywhere that should be considered a source of
+    information while inpainting. The pixels in border_mask should be false in
+        source_mask
+    source_image need not be strictly invalid anywhere (source_mask will
+        deal with that), but it does need to be valid where source_mask is true.
+        source_image should be the array/image we are painting from/to
+    """
+    coords = np.stack([*np.where(border_mask)], axis=1)
+    print(coords.shape)
+
+
 if __name__ == "__main__":
-    ipmask, validmask = inpaint_mask()
-    # notipmask = ~(validmask&ipmask)
-    # border = boolean_edges(notipmask)
-    plt.imshow(ipmask, origin='lower')
-    # arr = np.arange(64).reshape(8, 8)
-    # mask = np.ones(arr.shape)
-    # mask[arr > 47] = 0
-    # mask[arr < 16] = 0
-    # mask[arr%8 < 1] = 0
-    # mask[arr%8 > 6] = 0
-    # mask = ~(mask.astype(bool))
-    # count = boolean_edges(mask)
-    # plt.imshow(count, origin='lower')
-    plt.show()
+    with fitsopen(soln_2p_5pcterr) as hdul:
+        T = hdul[1].data
+        N = hdul[3].data
+        w = WCS(hdul[1].header)
+    T, N = convolve_Herschel_maps(T, N, w)
+    ipmask, validmask = inpaint_mask(T, N)
+    notipmask = ~(validmask&ipmask)
+    source_mask = validmask & ~ipmask
+    border = boolean_edges(notipmask)
+    paint_border(border, source_mask, T)
+    # plt.imshow(validmask & ~ipmask, origin='lower')
+    # plt.show()
