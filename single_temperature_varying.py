@@ -5,6 +5,7 @@ from astropy.wcs import WCS
 import compare_images as cimg
 from math import ceil
 from scipy.signal import convolve2d
+import sys
 
 
 per1_dir = "/n/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/"
@@ -16,11 +17,12 @@ soln_2p_5pcterr = "T4-absdiff-Per1J-plus045-plus05.0pct-pow-1000-0.1-1.80.fits"
 manticore_nominal_2p = "T4-absdiff-Per1J-plus045-plus05.0pct-pow-1000-0.1-1.80-crop6.fits"
 manticore_nominal_3p = "T4-absdiff-Per1J-3param-plus045-plus05.0pct-cpow-1000-0.1-2.10hpow-1000-0.1-1.80-bcreinit-Th15.95-Nh5E19,2E22-crop6.fits"
 
-def prepare_convolution(w, beam, n_sigma=3):
+def prepare_convolution(w, beam, n_sigma=3, method='scipy', data_shape=None):
     # Given a WCS object and beam FWHMs in arcminutes,
     #  returns the Gaussian needed to convolve image by this kernel
-    # Gaussian is returned in smaller array that includes contributions out to 5sigma
+    # Gaussian is returned in smaller array that includes contributions out to n_sigma
     # Find pixel scale, in arcminutes
+    # methods = 'scipy' or 'fft'
     dtheta_dpix_i = np.sqrt(np.sum([(x2 - x1)**2 for (x1, x2) in zip(w.wcs_pix2world(0, 0, 0), w.wcs_pix2world(0, 1, 0))]))*60
     dtheta_dpix_j = np.sqrt(np.sum([(x2 - x1)**2 for (x1, x2) in zip(w.wcs_pix2world(0, 0, 0), w.wcs_pix2world(1, 0, 0))]))*60
     dthetas = [dtheta_dpix_i, dtheta_dpix_j]
@@ -28,11 +30,15 @@ def prepare_convolution(w, beam, n_sigma=3):
     sigma_arcmin = beam / 2.35 # FWHM to standard deviation
     ij_arrays = [None, None]
     for x in range(2):
-        several_sigma_pixels = int(ceil(n_sigma * sigma_arcmin / dthetas[x])) # number of pixels in 5 sigma
-        kernel_width = 2*several_sigma_pixels + 1 # several_sigma_pixels on each side, plus center for zero
-        x_array = np.arange(kernel_width).astype(float) - several_sigma_pixels
+        if method == 'scipy' or method == 'manual':
+            several_sigma_pixels = int(ceil(n_sigma * sigma_arcmin / dthetas[x])) # number of pixels in 5 sigma
+            kernel_width = 2*several_sigma_pixels + 1 # several_sigma_pixels on each side, plus center for zero
+            x_array = np.arange(kernel_width).astype(float) - several_sigma_pixels
+        elif method == 'fft':
+            x_array = np.arange(data_shape[x]).astype(float) - data_shape[x]//2
+        else:
+            raise RuntimeError("Method {:s} is not implemented".format(method))
         x_array *= dthetas[x]
-        print(x_array)
         y_array = np.exp(-x_array*x_array/(2*sigma_arcmin*sigma_arcmin))
         y_array = y_array / np.trapz(y_array)
         ij_arrays[x] = y_array
@@ -41,33 +47,63 @@ def prepare_convolution(w, beam, n_sigma=3):
     return convolution_beam
 
 
-def convolve_properly(image, kernel):
+def convolve_fft(image, kernel, **kwargs):
+    # assumes no nans, just the convolution
+    # kwargs are ignored;
+    #   needs to match call signature of scipy.signal's convolve2d
+    ft = np.fft.fft2(image)*np.fft.fft2(kernel)
+    return np.real(np.fft.fftshift(np.fft.ifft2(ft)))
+
+def convolve_properly(image, kernel, method='scipy'):
     # Preserve NaNs
     # also mitigate edge effects / normalization from NaN correction
-    # try to use scipy
+    # offers both scipy and fft methods
+    if method == 'scipy':
+        convolve_routine = convolve2d
+    elif method == 'fft':
+        convolve_routine = convolve_fft
+    else:
+        raise RuntimeError("Method {:s} is not implemented".format(method))
     convkwargs = dict(mode='same', boundary='fill', fillvalue=0.)
     image = image.copy()
     nanmask = np.isnan(image)
     image[nanmask] = 0.
-    result = convolve2d(image, kernel, **convkwargs)
+    result = convolve_routine(image, kernel, **convkwargs)
     # now account for edge effects / normalization
     image[~nanmask] = 1.
-    norm = convolve2d(image, kernel, **convkwargs)
+    norm = convolve_routine(image, kernel, **convkwargs)
     image[:] = 1.
-    norm /= convolve2d(image, kernel, **convkwargs)
+    norm /= convolve_routine(image, kernel, **convkwargs)
     result /= norm
     result[nanmask] = np.nan
     return result
 
-def convolve_from_source(coordinates_to_fill, source_image, kernel):
+def convolve_from_source(coordinates_to_fill, source_mask, source_image, kernel,
+    method='manual'):
     """
+    Coordinates should be tuples(i coords array, j coords array)
+    Assume that no coordinates will force kernel over the edge of the image
+    Source mask should be float 1s and 0s, 1 where valid
+    Source image should be 0 wherever it's invalid (no nans!)
+    You can assume that the kernel side lengths are odd
     HEY there's two ways to do this
     1) manually loop thru points and find source contribution
-    2) FFT convolve, normalize, and mask out the stuff that doesn't matter
+    2) scipy convolve, normalize, and mask out the stuff that doesn't matter
+    3) FFT convolve, normalize, and mask out the stuff that doesn't matter
     it's unclear which of these will actually take less time. we'll have to...
     # TODO: TRY BOTH AND COMPARE!
     """
-    pass
+    if method == 'manual':
+        coordinates_to_fill = np.stack([*coordinates_to_fill], axis=1)
+        kernel_extents = tuple(x // 2 for x in kernel.shape)
+        values = []
+        for ij in coordinates_to_fill:
+            (i_lo, i_hi), (j_lo, j_hi) = tuple((i - kernel_extents[n], i + kernel_extents[n] + 1) for i, n in zip(ij, range(2)))
+            predicted_value = np.sum(kernel * source_image[i_lo:i_hi, j_lo:j_hi]) / np.sum(kernel * source_mask[i_lo:i_hi, j_lo:j_hi])
+            values.append(predicted_value)
+        return np.array(values)
+    else:
+        return convolve_properly(source_image, kernel, method=method)[coordinates_to_fill] / convolve_properly(source_mask, kernel, method=method)[coordinates_to_fill]
 
 
 def fitsopen(fn):
@@ -160,18 +196,23 @@ def test_filter_conv_N():
     fig.colorbar(p, ax=axes[1, 1], **axkwarg)
     plt.show()
 
-def convolve_Herschel_maps(T, N, w):
+def prepare_TN_maps(T, N, w, conv_sigma_mult=None, n_sigma=3, sigma_mult=1, method='manual'):
     """
     T is temperature map, N is column density map
     T, N are already convolved up a little bit
     w is WCS object from WCS(header)
-    returns (T convolved, N convolved)
+    returns (T convolved, N convolved, convolution kernel)
+    The convolution kernel can be used for inpainting
     """
-    new_beam = cimg.bandpass_beam_sizes['SPIRE500um'] / np.sqrt(2)
-    conv_beam = prepare_convolution(w, new_beam)
-    T_conv = convolve_properly(T, conv_beam)
-    N_conv = convolve_properly(N, conv_beam)
-    return T_conv, N_conv
+    new_beam = cimg.bandpass_beam_sizes['SPIRE500um']
+    if conv_sigma_mult != 'noconv':
+        if conv_sigma_mult is None:
+            conv_sigma_mult = 1./np.sqrt(2)
+        conv_beam = prepare_convolution(w, new_beam*conv_sigma_mult, n_sigma=n_sigma, method='scipy')
+        T = convolve_properly(T, conv_beam, method='scipy')
+        N = convolve_properly(N, conv_beam, method='scipy')
+    conv_beam = prepare_convolution(w, new_beam*sigma_mult, n_sigma=n_sigma, data_shape=T.shape, method=method)
+    return T, N, conv_beam
 
 def inpaint_mask(T, N):
     """
@@ -181,16 +222,21 @@ def inpaint_mask(T, N):
     ipmask is true where data needs to be inpainted
     validmask is true where data is valid (not nan)
     """
-    nanmask = np.isnan(T)
+    nanmask = np.isnan(T) & np.isnan(N)
     mask_N = (N > 1.5e21) # this is what we want to inpaint
     return mask_N, ~nanmask
 
 
-def boolean_edges(mask):
+def boolean_edges(mask, valid_mask, valid_borders=False):
     # takes in a bool array
     # returns bool array of 1s from mask that border 0s
+    # will not allow 1s anywhere valid_mask is 0
 
     mshape = mask.shape
+
+    if valid_borders:
+        # return mask of pixels that border 8 or more valid_mask pixels
+        mask = ~valid_mask
     # cast to int so we can add
     mask = mask.astype(int)
     border_count = np.zeros(mshape, dtype=int)
@@ -213,24 +259,35 @@ def boolean_edges(mask):
             stmt_l = "[{:s}, {:s}]".format(row[0], col[0])
             stmt_r = "[{:s}, {:s}]".format(row[1], col[1])
             stmt = "dst{:s} = dst{:s} + src{:s}".format(stmt_l, stmt_l, stmt_r)
-            print(stmt)
             exec(stmt, {}, {"dst": border_count, "src": mask})
-    # at this point, can add
-    return border_count.astype(bool) ^ mask
+    if valid_borders:
+        return border_count < 8
+    else:
+        return border_count.astype(bool) & ~mask & valid_mask
 
-
-def paint_border(border_mask, source_mask, source_image):
+def paint(paint_mask, valid_mask, source_image, kernel, method='scipy'):
     """
-    border_mask should be true at this current border to be inpainted
-    source_mask should be true anywhere that should be considered a source of
-    information while inpainting. The pixels in border_mask should be false in
-        source_mask
-    source_image need not be strictly invalid anywhere (source_mask will
-        deal with that), but it does need to be valid where source_mask is true.
-        source_image should be the array/image we are painting from/to
+    paint_mask should be true where you want to paint
+    valid_mask should be true at the initially valid source pixels
+    source_image need not have the paint pixels removed; this is the
+        image that the painting will be based on
+    kernel should be small w.r.t. the source image. it need not be square,
+        but each side length should be odd
     """
-    coords = np.stack([*np.where(border_mask)], axis=1)
-    print(coords.shape)
+    work_in_progress = source_image.copy()
+    source_mask = (valid_mask & ~paint_mask)
+    while np.any(source_mask ^ valid_mask):
+        # plt.imshow(source_mask ^ valid_mask, origin='lower')
+        # plt.title("currently painting...")
+        # plt.show()
+        border_mask = boolean_edges(source_mask, valid_mask)
+        border_coords = np.where(border_mask)
+        border_values = convolve_from_source(border_coords,
+            source_mask.astype(float), work_in_progress, kernel,
+            method=method)
+        work_in_progress[border_coords] = border_values
+        source_mask[np.where(border_mask)] = True
+    return work_in_progress
 
 
 if __name__ == "__main__":
@@ -238,11 +295,45 @@ if __name__ == "__main__":
         T = hdul[1].data
         N = hdul[3].data
         w = WCS(hdul[1].header)
-    T, N = convolve_Herschel_maps(T, N, w)
+    # T = np.arange(50*50).astype(float).reshape(50, 50)
+    # T = (T+8)*16/((50*50)+8)
+    # T[20:30, 20:30] = 0
+    # T[:4, :] = np.nan
+    # T[-4:, :] = np.nan
+    # T[:, :4] = np.nan
+    # T[:, -4:] = np.nan
+    # N = np.arange(50*50).astype(float).reshape(50, 50)
+    # N[20:30, 20:30] = 2e22
+    Torig, Norig = T.copy(), N.copy()
+    method = 'manual'
+    T, N, conv_kernel = prepare_TN_maps(Torig, Norig, w, n_sigma=3, conv_sigma_mult='noconv', sigma_mult=2, method=method)
+    if method == 'scipy' or method == 'manual':
+        print("KERNEL SHAPE", conv_kernel.shape)
+        T = np.pad(T, tuple([x//2]*2 for x in conv_kernel.shape), mode='constant', constant_values=np.nan)
+        N = np.pad(N, tuple([x//2]*2 for x in conv_kernel.shape), mode='constant', constant_values=np.nan)
+    plot_it = True
     ipmask, validmask = inpaint_mask(T, N)
-    notipmask = ~(validmask&ipmask)
     source_mask = validmask & ~ipmask
-    border = boolean_edges(notipmask)
-    paint_border(border, source_mask, T)
-    # plt.imshow(validmask & ~ipmask, origin='lower')
-    # plt.show()
+    has_borders = boolean_edges(source_mask, validmask, valid_borders=True)
+    ipmask[np.where(~has_borders)] = False
+    # plt.figure()
+    # plt.subplot(121)
+    # plt.imshow(T, origin='lower')
+    # plt.subplot(122)
+    # plt.imshow(N, origin='lower')
+    # fig, axes = plt.subplots(ncols=3, sharex=True, sharey=True)
+    # axes[0].imshow(validmask, origin='lower')
+    # axes[1].imshow(ipmask, origin='lower')
+    # axes[2].imshow(ipmask, origin='lower')
+    final_img = T
+    final_img[np.where(ipmask | ~validmask)] = 0.
+    final_img = paint(ipmask, validmask, final_img, conv_kernel, method=method)
+    if method == 'scipy' or method == 'manual':
+        print("ORIGINAL SHAPE", Torig.shape)
+        final_img = final_img[(conv_kernel.shape[0]//2):(-conv_kernel.shape[0]//2 + 1), (conv_kernel.shape[1]//2):(-conv_kernel.shape[1]//2 + 1)]
+        print("FINAL SHAPE", final_img.shape)
+    print("DONE")
+    final_img = prepare_TN_maps(final_img, N, w, conv_sigma_mult=3)[0]
+    plt.figure(figsize=(14, 9))
+    plt.imshow(final_img, origin='lower', vmin=14, vmax=18)
+    plt.show()
