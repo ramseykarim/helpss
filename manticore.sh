@@ -107,11 +107,11 @@ for b in b2 b3 b4 ; do
 done
 
 if [[ "${n_param}" == "3" ]] ; then
-  call_command="${manticore} -3 -v -T ${T_hot} -s ${working_dir}${single} -a  -c 0.0"
+  call_command="${manticore} -3 -T ${T_hot} -s ${working_dir}${single}  -c 0.0"
 else
-  call_command="${manticore} -${n_param} -v -a"
+  call_command="${manticore} -${n_param}"
 fi
-call_command="${call_command} -D ${dust} -l ${log} -o ${out} -e ${err_args} ${flux_args}"
+call_command="${call_command} -v -a -t ${n_cores} -D ${dust} -l ${log} -o ${out} -e ${err_args} ${flux_args}"
 
 echo "*****************************"
 echo "CALLING MANTICORE AS:"
