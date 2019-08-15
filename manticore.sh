@@ -117,7 +117,7 @@ echo "*****************************"
 echo "CALLING MANTICORE AS:"
 echo "${call_command}"
 
-# $call_command
+$call_command
 
 echo "=============================" >> $log
 echo "Finished at $(date)" >> $log
