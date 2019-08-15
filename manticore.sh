@@ -92,6 +92,7 @@ out="${working_dir}full-1.4.1-${region}-${dust}${Thstub}.fits"
 manticore="/sgraraid/filaments/manticore-1.4.1/manticore"
 rccstub="-remapped-conv"
 fitsstub=".fits"
+dust=$(echo $dust | sed 's/-/:/g')
 
 img="image${rccstub}"
 err="error${rccstub}"
