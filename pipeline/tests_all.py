@@ -62,7 +62,7 @@ def test_predict():
     # set pixel_scale_arcsec to 300 so this runs quickly for testing purposes
     # this is just the pixel scale for an intermediate step; the final grid
     #  is the same as the input PACS grid
-    model = cpo.GNILCModel(pdata, phead, pixel_scale_arcsec=300)
+    model = cpo.GNILCModel(pdata, phead, pixel_scale_arcsec=75)
     model.get_offset(full_diagnostic=True)
     return model
 
@@ -72,6 +72,7 @@ def test_add_flux_mod_error():
     pacs_fn = pacs_path+"PACS160um-image-remapped-conv.fits"
     pacs_err = pacs_path+"PACS160um-error-remapped-conv.fits"
     add_offset(45, pacs_fn)
+    pacs_fn = pacs_path+"PACS160um-image-remapped-conv-plus000045.fits"
     add_systematic_error(0.05, pacs_err, pacs_fn)
     spire_fn = lambda x: pacs_path+"SPIRE{:d}um-image-remapped-conv.fits".format(x)
     spire_err = lambda x: pacs_path+"SPIRE{:d}um-error-remapped-conv.fits".format(x)
