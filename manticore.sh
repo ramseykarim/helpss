@@ -97,13 +97,13 @@ dust=$(echo $dust | sed 's/-/:/g')
 img="image${rccstub}"
 err="error${rccstub}"
 
-b1="${dirstub}PACS160um-"
-b2="${dirstub}SPIRE250um-"
-b3="${dirstub}SPIRE350um-"
-b4="${dirstub}SPIRE500um-"
+b1="${working_dir}PACS160um-"
+b2="${working_dir}SPIRE250um-"
+b3="${working_dir}SPIRE350um-"
+b4="${working_dir}SPIRE500um-"
 flux_args="${b1}${img}${flux_mod}${fitsstub} ${b2}${img}${fitsstub} ${b3}${img}${fitsstub} ${b4}${img}${fitsstub}"
 err_args="${b1}${err}${perr_mod}${fitsstub}" # need to prefix with "-e "
-for b in b2 b3 b4 ; do
+for b in $b2 $b3 $b4 ; do
   err_args="${err_args} -e ${b}${err}${serr_mod}${fitsstub}"
 done
 
