@@ -108,9 +108,9 @@ for b in $b2 $b3 $b4 ; do
 done
 
 if [[ "${n_param}" == "3" ]] ; then
-  call_command="${manticore} -3 -T ${T_hot} -s ${working_dir}${single}  -c 0.0"
+  call_command="${manticore} -3 -T ${T_hot} -s ${working_dir}${single}  -c 0.0 -g 100,100"
 else
-  call_command="${manticore} -${n_param}"
+  call_command="${manticore} -${n_param} -g 100"
 fi
 call_command="${call_command} -v -a -t ${n_cores} -D ${dust} -l ${log} -o ${out} -e ${err_args} ${flux_args}"
 
