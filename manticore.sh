@@ -2,6 +2,7 @@
 # author: ramsey
 # this needs to be run on sgra (or another manticore-ready computer)
 
+manticore_version="1.4.2"
 flux_mod="-plus000045"
 perr_mod="-plus5.0pct"
 serr_mod="-plus1.5pct"
@@ -13,14 +14,14 @@ n_param="3"
 log="mant_log.log"
 n_cores="5"
 region="Per1"
-single="full-1.4.1-Per1-pow-1000-0.1-1.80.fits"
+single="full-${manticore_version}-Per1-pow-1000-0.1-1.80.fits"
 
 print_usage() {
     printf "Usage:\n -h for beta_hot\n -c for beta_cold\n -T for hot temperature\n -d for directory\n"
 }
 
 # parse arguments
-while getopts 'h:c:T:d:2l:s:' flag; do
+while getopts 'h:c:T:d:2l:s:t:' flag; do
     case "${flag}" in
         h) beta_h="${OPTARG}" ;;
         c) beta_c="${OPTARG}" ;;
@@ -29,6 +30,7 @@ while getopts 'h:c:T:d:2l:s:' flag; do
         2) n_param="2" ;;
         l) log="${OPTARG}" ;;
         s) single="${OPTARG}" ;;
+        t) n_cores="${OPTARG}" ;;
         *) print_usage
             exit 1 ;;
     esac
@@ -88,8 +90,8 @@ echo "using ${n_cores} cores on $(hostname) as $(whoami)" >> $log
 
 
 # Really put together the command line arguemnts
-out="${working_dir}full-1.4.1-${region}-${dust}${Thstub}.fits"
-manticore="/sgraraid/filaments/manticore-1.4.1/manticore"
+out="${working_dir}full-${manticore_version}-${region}-${dust}${Thstub}.fits"
+manticore="/sgraraid/filaments/manticore-${manticore_version}/manticore"
 rccstub="-remapped-conv"
 fitsstub=".fits"
 dust=$(echo $dust | sed 's/-/:/g')
