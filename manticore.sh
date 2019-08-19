@@ -48,7 +48,7 @@ fi
 # put together some manticore arguments
 if [[ "$n_param" == "3" ]] ; then
     dust="${beta_h},${beta_c}"
-    Thstub="Th${T_hot}"
+    Thstub="-Th${T_hot}"
 else
     dust="${beta_h}"
     Thstub=""
