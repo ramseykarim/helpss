@@ -32,6 +32,7 @@ def add_offset(offset, filename, savename=None, extension=0):
     except OSError:
         fits.writeto(savename, data, header=head, overwrite=True)
         print(f"Wrote to {savename} with {offset_str} offset (overwriting existing)")
+    return savename
 
 
 def add_systematic_error(flux_fraction, error_filename, flux_filename,
@@ -75,3 +76,4 @@ def add_systematic_error(flux_fraction, error_filename, flux_filename,
     except OSError:
         fits.writeto(savename, error, header=head, overwrite=True)
         print(f"Wrote to {savename} with {pct_string} offset (overwriting existing)")
+    return savename
