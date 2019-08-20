@@ -333,7 +333,7 @@ if __name__ == "__main__":
         final_img = final_img[(conv_kernel.shape[0]//2):(-conv_kernel.shape[0]//2 + 1), (conv_kernel.shape[1]//2):(-conv_kernel.shape[1]//2 + 1)]
         print("FINAL SHAPE", final_img.shape)
     print("DONE")
-    final_img = prepare_TN_maps(final_img, N, w, conv_sigma_mult=3)[0]
+    final_img = prepare_TN_maps(final_img, N, w, conv_sigma_mult=2)[0]
     plt.figure(figsize=(14, 9))
     plt.imshow(final_img, origin='lower', vmin=14, vmax=18)
     plt.show()
