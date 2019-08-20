@@ -20,8 +20,10 @@ print_usage_exit() {
     -h help (prints this message and exits)
     -x run (even if no arguments are present) (at least one argument is necessary to run)
     -H halo dust model/law (decimal spectral index, or OH5, DL5, or DL3)
+        if 2 parameter fit, this is the only dust model
         default -h 1.80
     -C core dust model/law (decimal spectral index, or OH5, DL5, or DL3)
+       	only used if running 3 parameter
         default -c 2.10
     -T halo temperature in Kelvin (number) (only used if running 3 parameter)
         default -T 16.00
