@@ -1,25 +1,25 @@
 from astropy.io import fits
 
 
-def add_offset(offset, filename, savename=None, extension=0):
+def add_offset(offset, filename, extension=0, savename=None):
     """
     Add a fixed offset to a FITS image. Will only save a single extension.
     Does not overwrite the original (unless savename==filename)
     Will save to the same directory as filename.
     :param offset: int or float additive offset
     :param filename: file path to FITS to modify
+    :param extension: FITS extension of data to read; default is 0
     :param savename: file path to which to write the modified data
         Default is to add "-plus######" right before ".fits"
         Will overwrite anything already saved as savename
-    :param extension: FITS extension of data to read; default is 0
+        If savename ends in '/', it is assumed to specify a directory,
+        not a filename.
+    :return: full name and path of newly saved file
     """
     # Make tidy offset string based on float vs int
     offset_str = "{:06d}".format(offset) if type(offset) == int else "{:06.1f}".format(offset)
-    if savename is None:
-        # Add "-plus######.fits" for a default
-        filename_first, fits_stub = filename[:-5], filename[-5:]
-        assert fits_stub == ".fits"
-        savename = f"{filename_first}-plus{offset_str}{fits_stub}"
+    # Add "-plus######.fits" for a default
+    savename = process_savename(savename, filename, offset_str)
     with fits.open(filename) as hdul:
         data = hdul[extension].data
         head = hdul[extension].header
@@ -55,14 +55,15 @@ def add_systematic_error(flux_fraction, error_filename, flux_filename,
     :param flux_extension: FITS extension where flux map is found. default=0
     :param savename: file path to which to write the modified error map
         Default is to add "-plus#.#pct" right before ".fits"
+        Will overwrite anything already saved as savename
+        If savename ends in '/', it is assumed to specify a directory,
+        not a filename.
+    :return: full name and path of newly saved file
     """
     # Make flux percentage string
     pct_string = "{:03.1f}pct".format(flux_fraction*100)
-    if savename is None:
-        # Add "-plus###pct.fits" for a default
-        filename_first, fits_stub = error_filename[:-5], error_filename[-5:]
-        assert fits_stub == ".fits"
-        savename = f"{filename_first}-plus{pct_string}{fits_stub}"
+    # Add "-plus###pct.fits" for a default
+    savename = process_savename(savename, error_filename, pct_string)
     with fits.open(error_filename) as hdul:
         error = hdul[error_extension].data
         head = hdul[error_extension].header
@@ -77,3 +78,40 @@ def add_systematic_error(flux_fraction, error_filename, flux_filename,
         fits.writeto(savename, error, header=head, overwrite=True)
         print(f"Wrote to {savename} with {pct_string} offset (overwriting existing)")
     return savename
+
+
+def process_savename(savename, original_filename, append_string):
+    """
+    Helper function that interprets the savename keyword argument for
+        add_systematic_error and add_offset
+    :param savename: string (or None) argument set to the "savename" keyword
+        in add_systematic_error or add_offset.
+        If savename ends in '/', it is assumed to specify a directory,
+        not a filename.
+    :param original_filename: original filename; only used if savename
+        is a directory or None
+    :param append_string: string to append to the filename,
+        right before ".fits"
+    :return: string, full save name + path
+    """
+    if savename is None:
+        # Default filename, saved to same directory as original file
+        # Get filename before ".fits" and insert append_string there
+        filename_first, fits_stub = original_filename[:-5], original_filename[-5:]
+        assert fits_stub == ".fits"
+        savename = f"{filename_first}-plus{append_string}{fits_stub}"
+    elif savename[-1] == '/':
+        # Default filename, but saved to savename directory
+        # Isolate original filename without path
+        filename_without_path = original_filename.split('/')[-1]
+        # Get name before ".fits" and insert append_string there
+        filename_first, fits_stub = filename_without_path[:-5], filename_without_path[-5:]
+        assert fits_stub == ".fits"
+        # Rebuild full filename with savename as path
+        savename = f"{savename}{filename_first}-plus{append_string}{fits_stub}"
+    # In any other case, savename will be assumed to be the full desired name+path
+    return savename
+
+
+
+

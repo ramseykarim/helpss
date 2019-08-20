@@ -80,5 +80,5 @@ def test_add_flux_mod_error():
         add_systematic_error(0.015, spire_err(b), spire_fn(b))
 
 if __name__ == "__main__":
-    # test_add_flux_mod_error()
-    test_predict()
+    test_add_flux_mod_error()
+    # test_predict()
