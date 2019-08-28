@@ -8,8 +8,8 @@ from scipy.signal import convolve2d
 import sys
 
 
-per1_dir = "/n/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/"
 per1_dir = "../"
+per1_dir = "/n/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/"
 
 soln_5pcterr = "T4-absdiff-Per1J-3param-plus045-plus05.0pct-cpow-1000-0.1-2.10hpow-1000-0.1-1.80-bcreinit-Th15.95-Nh5E19,2E22.fits"
 soln_2p_5pcterr = "T4-absdiff-Per1J-plus045-plus05.0pct-pow-1000-0.1-1.80.fits"
