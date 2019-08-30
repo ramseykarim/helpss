@@ -327,6 +327,8 @@ if __name__ == "__main__":
     # axes[2].imshow(ipmask, origin='lower')
     final_img = T
     final_img[np.where(ipmask | ~validmask)] = 0.
+    plt.figure(figsize=(14, 9))
+    plt.imshow(final_img, origin='lower', vmin=14, vmax=18)
     final_img = paint(ipmask, validmask, final_img, conv_kernel, method=method)
     if method == 'scipy' or method == 'manual':
         print("ORIGINAL SHAPE", Torig.shape)
