@@ -474,16 +474,23 @@ def regrid_fits(source_array, source_head, target_array, target_head,
 
 # noinspection SpellCheckingInspection
 def prepare_convolution(w, beam, data_shape):
-    # Given a WCS object and beam FWHMs in arcminutes,
-    #  returns the Gaussian needed to convolve image by this kernel
-    # Gaussian is returned in smaller array that includes contributions out to 5sigma
+    """
+    Given a WCS object and beam FWHMs in arcminutes,
+        returns the Gaussian needed to convolve image by this kernel
+    Gaussian is returned in smaller array that includes contributions out to 5sigma
+    :param w: WCS object for image
+    :param beam: float beam FWHM in arcuminutes
+    :param data_shape: 2-element tuple describing (row, col) shape of image array
+    :return: Gaussian convolution kernel with FWHM of beam. 2d array of data_shape
+    """
     # Find pixel scale, in arcminutes
     dtheta_dpix_i = np.sqrt(
         np.sum([(x2 - x1) ** 2 for (x1, x2) in zip(w.wcs_pix2world(0, 0, 0), w.wcs_pix2world(0, 1, 0))])) * 60
     dtheta_dpix_j = np.sqrt(
         np.sum([(x2 - x1) ** 2 for (x1, x2) in zip(w.wcs_pix2world(0, 0, 0), w.wcs_pix2world(1, 0, 0))])) * 60
     dthetas = [dtheta_dpix_i, dtheta_dpix_j]
-    sigma_arcmin = beam / 2.35  # FWHM to standard deviation
+    # FWHM to standard deviation
+    sigma_arcmin = beam / 2.35
     ij_arrays = [None, None]
     for x in range(2):
         x_array = np.arange(data_shape[x], dtype=float) - data_shape[x]//2
@@ -503,8 +510,15 @@ def convolve_helper(image, kernel):
 
 
 def convolve_properly(image, kernel):
-    # Preserve NaNs
-    # also mitigate edge effects / normalization from NaN correction
+    """
+    Convolve image with kernel
+    Preserve NaNs
+    Also mitigate edge effects / normalization from NaN correction
+    Convolves using convolve helper (check that implementation for details)
+    :param image: 2d array image
+    :param kernel: 2d array kernel, must be same shape as image
+    :return: 2d array convolved result matching shape of image
+    """
     image = image.copy()
     nan_mask = np.isnan(image)
     image[nan_mask] = 0.
@@ -517,4 +531,17 @@ def convolve_properly(image, kernel):
     result /= norm
     result[nan_mask] = np.nan
     return result
+
+def gaussian(x, mu, sigma, amplitude):
+    """
+    Exactly what it looks like. Good for curve fitting or convolution.
+    :param x: independent variable x array
+    :param mu: mean of gaussian
+    :param sigma: standard deviation of gaussian
+    :param amplitude: amplitude coefficient of gaussian
+    :return: gaussian curve with array shape of x argument
+    """
+    coefficient = amplitude / (np.sqrt(2 * np.pi) * sigma)
+    exponent = -((x - mu) ** 2 / (2 * sigma * sigma))
+    return coefficient * np.exp(exponent)
 
