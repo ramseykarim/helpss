@@ -3,6 +3,8 @@
 # author: ramsey
 # this needs to be run on sgra (or another manticore-ready computer)
 
+this_script_name="manticore.sh"
+
 manticore_version="1.4.2"
 flux_mod="-plus000045"
 perr_mod="-plus5.0pct"
@@ -16,7 +18,7 @@ n_cores="5"
 region="Per1"
 
 print_usage_exit() {
-    printf "manticore.sh: usage: ./manticore.sh [valid arguments]
+    printf "${this_script_name}: usage: ./${this_script_name} [valid arguments]
     -h help (prints this message and exits)
     -x run (even if no arguments are present) (at least one argument is necessary to run)
     -H halo dust model/law (decimal spectral index, or OH5, DL5, or DL3)
@@ -74,7 +76,7 @@ while getopts 'hxH:C:T:d:2l:s:t:o:' flag ; do
 done
 
 if [[ -z $1 ]] ; then
-    printf "$0: need at least one argument (-x to run with all defaults)\n"
+    printf "${this_script_name}: need at least one argument (-x to run with all defaults)\n"
     print_usage_exit
 fi
 
@@ -82,10 +84,12 @@ fi
 # A couple helper functions for parsing arguments
 parse_dust() {
     # first/only argument is dust model argument
-    if [[ "$1" != "DL3" ]] && [[ "$1" != "DL5" ]] && [[ "$1" != "OH5" ]] ; then
-        echo "pow-1000-0.1-${1}"
-    else
+    if [[ "$1" == "DL3" ]] || [[ "$1" == "DL5" ]] || [[ "$1" == "OH5" ]] ; then
         echo "$1"
+    else
+        # assume it is a decimal, like "1.80"
+        # manticore should complain if invalid.
+        echo "pow-1000-0.1-${1}"
     fi
 }
 
