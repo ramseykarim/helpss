@@ -47,6 +47,14 @@ calibrated_pacs_flux_filename = modify_fits.add_offset(45, pacs_flux_filename, s
 
 # PACS+SPIRE SYSTEMATIC UNCERTAINTY
 
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# !!!!!!!!!! UPDATE as of Oct 4, 2019 !!!!!!!!!!!!!!!!!!!!!
+# Just skip these, since we no longer add systematic error
+# to the statistical error maps (per Kevin's suggestion)
+# That means the processing ENDS HERE!
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 # The PACS error map needs 5%, and the SPIRE errors need 1.5%
 # PACS error map from Tracy's procedures should be called
