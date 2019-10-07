@@ -75,7 +75,7 @@ sanitize_directory() {
     fi
     # Resolve relative paths to absolute ones (more or less)
     if [[ "$directory" != \/* ]] ; then
-        directory="$(pwd)${directory}"
+        directory="$(pwd)/${directory}"
     fi
     echo $directory
     if [[ ! -d $directory ]] ; then
@@ -89,16 +89,16 @@ while getopts 'hxd:S:P:i:n:o:' flag ; do
         h) print_usage_exit ;;
         x) : ;;
         d) obs_directory="$(sanitize_directory ${OPTARG})"
-            if [[ $? -eq 1 ]] ; then complain_directory "${OPTARG}" ; fi ;;
+            if [[ $? -eq 1 ]] ; then complain_directory "${obs_directory}" ; fi ;;
         P) Pobs_directory="$(sanitize_directory ${OPTARG})"
-            if [[ $? -eq 1 ]] ; then complain_directory "${OPTARG}" ; fi ;;
+            if [[ $? -eq 1 ]] ; then complain_directory "${Pobs_directory}" ; fi ;;
         S) Sobs_directory="$(sanitize_directory ${OPTARG})"
-            if [[ $? -eq 1 ]] ; then complain_directory "${OPTARG}" ; fi ;;
+            if [[ $? -eq 1 ]] ; then complain_directory "${Sobs_directory}" ; fi ;;
         i) mprep_directory="$(sanitize_directory ${OPTARG})"
-            if [[ $? -eq 1 ]] ; then complain_directory "${OPTARG}" ; fi ;;
+            if [[ $? -eq 1 ]] ; then complain_directory "${mprep_directory}" ; fi ;;
         n) object_name="${OPTARG}" ;;
         o) working_dir="$(sanitize_directory ${OPTARG})"
-            if [[ $? -eq 1 ]] ; then complain_directory "${OPTARG}" ; fi ;;
+            if [[ $? -eq 1 ]] ; then complain_directory "${working_dir}" ; fi ;;
         *) print_usage_exit ;;
     esac
 done
@@ -134,12 +134,17 @@ else
   printf "${this_script_name}: SPIRE directory not valid\n"
   exit 1
 fi
+
+echo $Pobs_directory
+echo $Sobs_directory
+exit 0
 # The directory structure of the PACS and SPIRE data is fairly standard
 # We can assume the name of these subdirectories and that they each contain 1 file
 p160_source=\"$(find "${Plvl2or25_directory}HPPJSMAPR/" -name "*.*")\"
 s250_source=\"$(find "${Slvl2or25_directory}extdPSW/" -name "*.*")\"
 s350_source=\"$(find "${Slvl2or25_directory}extdPMW/" -name "*.*")\"
 s500_source=\"$(find "${Slvl2or25_directory}extdPLW/" -name "*.*")\"
+
 
 # Construct the IDL call (based on the NOTES Tracy made in mprep_directory)
 
