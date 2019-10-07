@@ -1,12 +1,14 @@
 #!/bin/bash
 # bash script to run manticore, updated
-# author: ramsey
+# author: Ramsey Karim
 # this needs to be run on sgra (or another manticore-ready computer)
 
+this_script_name="manticore.sh"
+
 manticore_version="1.4.2"
-flux_mod="-plus000045"
-perr_mod="-plus5.0pct"
-serr_mod="-plus1.5pct"
+flux_mod="45"
+perr_mod=""
+serr_mod=""
 beta_h="1.80"
 beta_c="2.10"
 T_hot="16.00"
@@ -16,7 +18,7 @@ n_cores="5"
 region="Per1"
 
 print_usage_exit() {
-    printf "manticore.sh: usage: ./manticore.sh [valid arguments]
+    printf "${this_script_name}: usage: ./${this_script_name} [valid arguments]
     -h help (prints this message and exits)
     -x run (even if no arguments are present) (at least one argument is necessary to run)
     -H halo dust model/law (decimal spectral index, or OH5, DL5, or DL3)
@@ -47,12 +49,17 @@ print_usage_exit() {
         if contains '/' but does not end in '/', assumes this specifies full file name and path to which to write
         if not contains '/', assumes this specifies only the filename and writes to working directory
         if not set, writes to default filename in working directory
+    -f PACS flux offset (number)
+        either integer or float, shouldn't be more than 6 digits
+        the PACS image with this offset must already exist (and be named properly)
+        this script will do the formatting (0 padding, etc)
+        default -f 45 (good for Per1 region)
 "
     exit 1
 }
 
 # parse arguments
-while getopts 'hxH:C:T:d:2l:s:t:o:' flag ; do
+while getopts 'hxH:C:T:d:2l:s:t:o:f:' flag ; do
     case "${flag}" in
         h) print_usage_exit ;;
         x) : ;;
@@ -61,31 +68,34 @@ while getopts 'hxH:C:T:d:2l:s:t:o:' flag ; do
         T) T_hot="${OPTARG}" ;;
         d) working_dir="${OPTARG}"
             if [[ "$working_dir" != *\/ ]] ; then
-                printf "$0: invalid directory name -- d\n"
-                print_usage_exit
+                printf "$0: invalid directory name -- d (-h for instructions)\n"
+                exit 1
             fi ;;
         2) n_param="2" ;;
         l) log="${OPTARG}" ;;
         s) single="${OPTARG}" ;;
         t) n_cores="${OPTARG}" ;;
         o) out="${OPTARG}" ;;
+        f) flux_mod="${OPTARG}" ;;
         *) print_usage_exit ;;
     esac
 done
 
 if [[ -z $1 ]] ; then
-    printf "$0: need at least one argument (-x to run with all defaults)\n"
-    print_usage_exit
+    printf "${this_script_name}: need at least one argument (-x to run with all defaults, -h for instructions)\n"
+    exit 1
 fi
 
 
 # A couple helper functions for parsing arguments
 parse_dust() {
     # first/only argument is dust model argument
-    if [[ "$1" != "DL3" ]] && [[ "$1" != "DL5" ]] && [[ "$1" != "OH5" ]] ; then
-        echo "pow-1000-0.1-${1}"
-    else
+    if [[ "$1" == "DL3" ]] || [[ "$1" == "DL5" ]] || [[ "$1" == "OH5" ]] ; then
         echo "$1"
+    else
+        # assume it is a decimal, like "1.80"
+        # manticore should complain if invalid.
+        echo "pow-1000-0.1-${1}"
     fi
 }
 
@@ -115,6 +125,20 @@ else
     dust="${beta_h}"
     Thstub=""
 fi
+
+# Format flux offset as present in PACS image filename
+re_float='^[0-9]{1,5}\.[0-9]$'
+re_int='^[0-9]+$'
+if [[ $flux_mod =~ $re_float ]] ; then
+    flux_mod=$(printf "plus%06.1f"  $flux_mod)
+elif [[ $flux_mod =~ $re_int ]] ; then
+    flux_mod=$(printf "plus%06d"  $flux_mod)
+else
+    printf "Invalid PACS flux offset: %s (-h for instructions)\n" $flux_mod
+    exit 1
+fi
+flux_mod="-${flux_mod}"
+
 
 # Parse log argument
 log=$(parse_filename $log mant_log.log)

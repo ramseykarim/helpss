@@ -217,7 +217,7 @@ class GNILCModel:
             print("spline fit estimate of histogram FWHM failed; approximating")
             mask_to_fit = y_to_fit > peak_val/2
         # noinspection SpellCheckingInspection,PyTypeChecker
-        popt, pcov = curve_fit(gaussian, x_to_fit[mask_to_fit],
+        popt, pcov = curve_fit(rgu.gaussian, x_to_fit[mask_to_fit],
                                y_to_fit[mask_to_fit], p0=p0)
         # Save fitted Gaussian parameters to the stats dictionary
         self.stats['gauss_fit'] = popt
@@ -240,7 +240,7 @@ class GNILCModel:
         lo_trim, hi_trim = mode - trim, mode + trim
         # Plot the Gaussian fit
         curve_x = curve_x[(curve_x > lo_trim) & (curve_x < hi_trim)]
-        curve_y = gaussian(curve_x, mode, sigma, amplitude)
+        curve_y = rgu.gaussian(curve_x, mode, sigma, amplitude)
         eq_string = r"$Ae^{-(x - \mu)^{2}/2\sigma^{2}}$"
         plt.plot(curve_x, curve_y, '-', color='k', alpha=.7,
                  label="{:s}->({:s}: {:.1f}, {:s}: {:.1f}, A: {:.1f})".format(
@@ -327,8 +327,3 @@ def visual_min_max(array):
     third_quartile = array_1d[9 * array_1d.size // 10]
     return first_quartile, third_quartile
 
-
-def gaussian(x, mu, sigma, amplitude):
-    coefficient = amplitude / (np.sqrt(2 * np.pi) * sigma)
-    exponent = -((x - mu) ** 2 / (2 * sigma * sigma))
-    return coefficient * np.exp(exponent)

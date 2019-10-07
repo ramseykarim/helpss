@@ -1,0 +1,176 @@
+#!/bin/bash
+# bash wrapper for Tracy's IDL preprocessing for HELPSS Herschel data
+# Author: Ramsey Karim
+
+
+# The idea here is to run Tracy's preprocessing code from command line using variables
+
+# This wrapper should be run with certain command line arguments:
+# 1: directory containing the "level2_5/" directory (e.g. /the/directory/)
+# 2: directory containing the manticore prep IDL procedures Tracy wrote
+# 3: name of the object (needs a name, like "Perseus1" or "NGC1333")
+# 4: directory to which to write all these images
+
+this_script_name="idl_preprocess_wrapper.sh"
+
+# COMMAND LINE ARGS ARE NOT YET SETUP, SO USING THESE DEFAULS BELOW
+# delet this eventually
+default_obs_dir="$(pwd)/"
+default_mprep_dir="/n/sgraraid/filaments/manticore-prep/"
+default_object="unassigned_name"
+default_working_dir="$(pwd)/"
+
+# set to defaults; will change if argument specifies such
+obs_directory=$default_obs_dir
+mprep_directory=$default_mprep_dir
+object_name=$default_object
+working_dir=$default_working_dir
+
+
+print_usage_exit() {
+    printf "${this_script_name} usage: ./${this_script_name} [valid arguments]
+    -h help (prints this message and exits)
+    -x run (even if no arguments are present) (at least one argument is necessary to run)
+    -d data directory containing the archival Herschel data
+        this directory MUST be the \"observation number\" directory
+        this directory MUST contain the \"level2_5\" directory
+        default -d <current directory> ($(pwd)/)
+    -i IDL preprocessing scripts directory
+        this directory must contain MakeHerschelImages.pro, RemapImages.pro, and ConvolveHerschelImages.pro
+        if you are running this on sgra, you may specify this without the '/n' prefix
+        default -i ${default_mprep_dir}
+    -n object name to assign in case the name is missing
+        default -o ${default_object}
+    -o output directory to which to write the processed FITS files
+        the directory MUST already exist
+        default -o <current directory> ($(pwd)/)
+    Note: try to avoid relative paths. This script will cd into the working directory.
+"
+    exit 1
+}
+
+complain_directory() {
+    # first/only arg is offending directory
+    printf "$BASH_SOURCE: DIRECTORY ${1} DOES NOT EXIST
+"
+    exit 1
+}
+
+sanitize_directory() {
+    # first/only argument is directory name
+    # ensures the name ends in '/'
+    # ensures this directory exists, and if not, prints usage and exits
+    directory=$1
+    if [[ "$directory" != *\/ ]] ; then
+        directory="${directory}/"
+    fi
+    echo $directory
+    if [[ ! -d $directory ]] ; then
+        exit 1
+    fi
+}
+
+# parse arguments
+while getopts 'hxd:i:n:o:' flag ; do
+    case "${flag}" in
+        h) print_usage_exit ;;
+        x) : ;;
+        d) obs_directory="$(sanitize_directory ${OPTARG})" 
+            if [[ $? -eq 1 ]] ; then complain_directory "${OPTARG}" ; fi ;;
+        i) mprep_directory="$(sanitize_directory ${OPTARG})"
+            if [[ $? -eq 1 ]] ; then complain_directory "${OPTARG}" ; fi ;;
+        n) object_name="${OPTARG}" ;;
+        o) working_dir="$(sanitize_directory ${OPTARG})"
+            if [[ $? -eq 1 ]] ; then complain_directory "${OPTARG}" ; fi ;;
+        *) print_usage_exit ;;
+    esac
+done
+
+if [[ -z $1 ]] ; then
+    printf "${this_script_name}: need at least one argument (-x to run with all defaults)\n"
+    print_usage_exit
+fi
+
+# Change directory to working directory so all file reads/writes are in there
+# will popd on our way out, just to be polite (I don't think it matters)
+pushd $working_dir
+
+# The obs_directory (something like ../1342190326/) should contain the level2_5/ directory
+lvl25_directory="${obs_directory}level2_5/"
+# The directory structure of the PACS and SPIRE data is fairly standard
+# We can assume the name of these subdirectories and that they each contain 1 file
+p160_source=\"$(find "${lvl25_directory}HPPJSMAPR/" -name "*.*")\"
+s250_source=\"$(find "${lvl25_directory}extdPSW/" -name "*.*")\"
+s350_source=\"$(find "${lvl25_directory}extdPMW/" -name "*.*")\"
+s500_source=\"$(find "${lvl25_directory}extdPLW/" -name "*.*")\"
+
+# Construct the IDL call (based on the NOTES Tracy made in mprep_directory)
+
+# Make ".run directory" shorthand and create all the import statements
+idlrun=".run ${mprep_directory}"
+make_herschel_images_import="${idlrun}MakeHerschelImages"
+remap_images_import="${idlrun}RemapImages"
+convolve_herschel_images_import="${idlrun}ConvolveHerschelImages"
+
+# MakeHerschelImages setup and call
+make_herschel_images_setup="filearr=strarr(4)
+filearr(0)=${p160_source}
+filearr(1)=${s250_source}
+filearr(2)=${s350_source}
+filearr(3)=${s500_source}
+"
+# Note that this will dump outputs to current working directory
+make_herschel_images_cmd="MakeHerschelImages, filearr, object=\"${object_name}\""
+# Get filenames for these newly created files (standard filenaming scheme)
+img="image"
+err="error"
+p160="\"./PACS160um-"
+s250="\"./SPIRE250um-"
+s350="\"./SPIRE350um-"
+s500="\"./SPIRE500um-"
+fits=".fits\""
+
+# RemapImages setup and call
+# Reference is SPIRE500 (largest pixels, so least number of pixels)
+# Need to remap other 3 images+errors (6 total files) to the reference
+remap_images_setup="reference=${s500}${img}${fits}
+filearr=strarr(6)
+filearr(0)=${p160}${img}${fits}
+filearr(1)=${p160}${err}${fits}
+filearr(2)=${s250}${img}${fits}
+filearr(3)=${s250}${err}${fits}
+filearr(4)=${s350}${img}${fits}
+filearr(5)=${s350}${err}${fits}
+"
+remap_images_cmd="RemapImages, reference, filearr"
+
+
+# ConvolveHerschelImages setup and call
+# Convolving to reference wavelength of 500um (worst resolution)
+rmp="-remapped"
+convolve_herschel_images_setup="wavearr=[160, 250, 350, 500]
+imarr=[${p160}\", ${s250}\", ${s350}\", ${s500}\"]+\"${img}${rmp}${fits}
+errarr=[${p160}\", ${s250}\", ${s350}\", ${s500}\"]+\"${err}${rmp}${fits}
+refwave=500
+"
+convolve_herschel_images_cmd="ConvolveHerschelImages, wavearr, imarr, errarr, refwave=refwave"
+
+# Make the IDL call using a "here document", which emulates interactive mode
+idl <<EOF
+${make_herschel_images_import}
+${remap_images_import}
+${convolve_herschel_images_import}
+
+${make_herschel_images_setup}
+${make_herschel_images_cmd}
+
+${remap_images_setup}
+${remap_images_cmd}
+
+${convolve_herschel_images_setup}
+${convolve_herschel_images_cmd}
+EOF
+
+popd
+printf "done with IDL preprocessing; written to ${working_dir}
+"
