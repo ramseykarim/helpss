@@ -8,8 +8,8 @@ from scipy.signal import convolve2d
 import sys
 
 
-per1_dir = "../"
 per1_dir = "/n/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/"
+per1_dir = "../"
 
 soln_5pcterr = "T4-absdiff-Per1J-3param-plus045-plus05.0pct-cpow-1000-0.1-2.10hpow-1000-0.1-1.80-bcreinit-Th15.95-Nh5E19,2E22.fits"
 soln_2p_5pcterr = "T4-absdiff-Per1J-plus045-plus05.0pct-pow-1000-0.1-1.80.fits"
@@ -327,6 +327,8 @@ if __name__ == "__main__":
     # axes[2].imshow(ipmask, origin='lower')
     final_img = T
     final_img[np.where(ipmask | ~validmask)] = 0.
+    plt.figure(figsize=(14, 9))
+    plt.imshow(final_img, origin='lower', vmin=14, vmax=18)
     final_img = paint(ipmask, validmask, final_img, conv_kernel, method=method)
     if method == 'scipy' or method == 'manual':
         print("ORIGINAL SHAPE", Torig.shape)
