@@ -135,9 +135,6 @@ else
   exit 1
 fi
 
-echo $Pobs_directory
-echo $Sobs_directory
-exit 0
 # The directory structure of the PACS and SPIRE data is fairly standard
 # We can assume the name of these subdirectories and that they each contain 1 file
 p160_source=\"$(find "${Plvl2or25_directory}HPPJSMAPR/" -name "*.*")\"
