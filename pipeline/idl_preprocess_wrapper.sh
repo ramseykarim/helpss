@@ -22,6 +22,8 @@ default_working_dir="$(pwd)/"
 
 # set to defaults; will change if argument specifies such
 obs_directory=$default_obs_dir
+Pobs_directory=""
+Sobs_directory=""
 mprep_directory=$default_mprep_dir
 object_name=$default_object
 working_dir=$default_working_dir
@@ -33,8 +35,14 @@ print_usage_exit() {
     -x run (even if no arguments are present) (at least one argument is necessary to run)
     -d data directory containing the archival Herschel data
         this directory MUST be the \"observation number\" directory
-        this directory MUST contain the \"level2_5\" directory
+        this directory MUST contain the \"level2_5\" OR \"level2\" directory
         default -d <current directory> ($(pwd)/)
+    -P data directory containing the archival Herschel PACS data
+        overrides -d
+        see \"-d\" documentation above
+    -S data directory containing the archival Herschel SPIRE data
+        overrides -d
+        see \"-d\" documentation above
     -i IDL preprocessing scripts directory
         this directory must contain MakeHerschelImages.pro, RemapImages.pro, and ConvolveHerschelImages.pro
         if you are running this on sgra, you may specify this without the '/n' prefix
@@ -71,11 +79,15 @@ sanitize_directory() {
 }
 
 # parse arguments
-while getopts 'hxd:i:n:o:' flag ; do
+while getopts 'hxd:S:P:i:n:o:' flag ; do
     case "${flag}" in
         h) print_usage_exit ;;
         x) : ;;
-        d) obs_directory="$(sanitize_directory ${OPTARG})" 
+        d) obs_directory="$(sanitize_directory ${OPTARG})"
+            if [[ $? -eq 1 ]] ; then complain_directory "${OPTARG}" ; fi ;;
+        P) Pobs_directory="$(sanitize_directory ${OPTARG})"
+            if [[ $? -eq 1 ]] ; then complain_directory "${OPTARG}" ; fi ;;
+        S) Sobs_directory="$(sanitize_directory ${OPTARG})"
             if [[ $? -eq 1 ]] ; then complain_directory "${OPTARG}" ; fi ;;
         i) mprep_directory="$(sanitize_directory ${OPTARG})"
             if [[ $? -eq 1 ]] ; then complain_directory "${OPTARG}" ; fi ;;
@@ -88,21 +100,44 @@ done
 
 if [[ -z $1 ]] ; then
     printf "${this_script_name}: need at least one argument (-x to run with all defaults)\n"
-    print_usage_exit
+    exit 1
 fi
 
 # Change directory to working directory so all file reads/writes are in there
 # will popd on our way out, just to be polite (I don't think it matters)
 pushd $working_dir
 
-# The obs_directory (something like ../1342190326/) should contain the level2_5/ directory
-lvl25_directory="${obs_directory}level2_5/"
+# if Pobs_directory or Sobs_directory are not set, set them
+if [[ -z "$Pobs_directory" ]] ; then Pobs_directory="$obs_directory" ; fi
+if [[ -z "$Sobs_directory" ]] ; then Sobs_directory="$obs_directory" ; fi
+# The obs_directory (something like ../1342190326/) should contain the
+#  level2_5/ or level2/ directory
+# Check PACS directory
+if [ -d "${Pobs_directory}level2_5/" ] ; then
+  Plvl2or25_directory="${Pobs_directory}level2_5/"
+elif [ -d "${Pobs_directory}level2/" ] ; then
+  Plvl2or25_directory="${Pobs_directory}level2/"
+else
+  printf "${this_script_name}: PACS directory not valid\n"
+  exit 1
+fi
+# Check SPIRE directory
+if [ -d "${Sobs_directory}level2_5/" ] ; then
+  Slvl2or25_directory="${Sobs_directory}level2_5/"
+elif [ -d "${Sobs_directory}level2/" ] ; then
+  Slvl2or25_directory="${Sobs_directory}level2/"
+else
+  printf "${this_script_name}: SPIRE directory not valid\n"
+  exit 1
+fi
+
 # The directory structure of the PACS and SPIRE data is fairly standard
 # We can assume the name of these subdirectories and that they each contain 1 file
-p160_source=\"$(find "${lvl25_directory}HPPJSMAPR/" -name "*.*")\"
-s250_source=\"$(find "${lvl25_directory}extdPSW/" -name "*.*")\"
-s350_source=\"$(find "${lvl25_directory}extdPMW/" -name "*.*")\"
-s500_source=\"$(find "${lvl25_directory}extdPLW/" -name "*.*")\"
+p160_source=\"$(find "${Plvl2or25_directory}HPPJSMAPR/" -name "*.*")\"
+s250_source=\"$(find "${Slvl2or25_directory}extdPSW/" -name "*.*")\"
+s350_source=\"$(find "${Slvl2or25_directory}extdPMW/" -name "*.*")\"
+s500_source=\"$(find "${Slvl2or25_directory}extdPLW/" -name "*.*")\"
+
 
 # Construct the IDL call (based on the NOTES Tracy made in mprep_directory)
 
