@@ -13,8 +13,8 @@
 
 this_script_name="idl_preprocess_wrapper.sh"
 
-# COMMAND LINE ARGS ARE NOT YET SETUP, SO USING THESE DEFAULS BELOW
-# delet this eventually
+# command line arguments are set up
+# default values for parameters are clearly enumerated below
 default_obs_dir="$(pwd)/"
 default_mprep_dir="/n/sgraraid/filaments/manticore-prep/"
 default_object="unassigned_name"
@@ -36,6 +36,7 @@ print_usage_exit() {
     -d data directory containing the archival Herschel data
         this directory MUST be the \"observation number\" directory
         this directory MUST contain the \"level2_5\" OR \"level2\" directory
+        relative or absolute path are both ok
         default -d <current directory> ($(pwd)/)
     -P data directory containing the archival Herschel PACS data
         overrides -d
@@ -72,6 +73,10 @@ sanitize_directory() {
     if [[ "$directory" != *\/ ]] ; then
         directory="${directory}/"
     fi
+    # Resolve relative paths to absolute ones (more or less)
+    if [[ "$directory" != \/* ]] ; then
+        directory="$(pwd)${directory}"
+    fi
     echo $directory
     if [[ ! -d $directory ]] ; then
         exit 1
@@ -100,44 +105,41 @@ done
 
 if [[ -z $1 ]] ; then
     printf "${this_script_name}: need at least one argument (-x to run with all defaults)\n"
-    exit 1
+    print_usage_exit
 fi
 
-# Change directory to working directory so all file reads/writes are in there
-# will popd on our way out, just to be polite (I don't think it matters)
-pushd $working_dir
 
-# if Pobs_directory or Sobs_directory are not set, set them
+# Get PACS+SPIRE observation directories and figure out level 2/2_5
+
+# If Pobs_directory or Sobs_directory are not set, set them
 if [[ -z "$Pobs_directory" ]] ; then Pobs_directory="$obs_directory" ; fi
 if [[ -z "$Sobs_directory" ]] ; then Sobs_directory="$obs_directory" ; fi
 # The obs_directory (something like ../1342190326/) should contain the
 #  level2_5/ or level2/ directory
 # Check PACS directory
-if [ -d "${Pobs_directory}level2_5/" ] ; then
+if [[ -d "${Pobs_directory}level2_5/" ]] ; then
   Plvl2or25_directory="${Pobs_directory}level2_5/"
-elif [ -d "${Pobs_directory}level2/" ] ; then
+elif [[ -d "${Pobs_directory}level2/" ]] ; then
   Plvl2or25_directory="${Pobs_directory}level2/"
 else
   printf "${this_script_name}: PACS directory not valid\n"
   exit 1
 fi
 # Check SPIRE directory
-if [ -d "${Sobs_directory}level2_5/" ] ; then
+if [[ -d "${Sobs_directory}level2_5/" ]] ; then
   Slvl2or25_directory="${Sobs_directory}level2_5/"
-elif [ -d "${Sobs_directory}level2/" ] ; then
+elif [[ -d "${Sobs_directory}level2/" ]] ; then
   Slvl2or25_directory="${Sobs_directory}level2/"
 else
   printf "${this_script_name}: SPIRE directory not valid\n"
   exit 1
 fi
-
 # The directory structure of the PACS and SPIRE data is fairly standard
 # We can assume the name of these subdirectories and that they each contain 1 file
 p160_source=\"$(find "${Plvl2or25_directory}HPPJSMAPR/" -name "*.*")\"
 s250_source=\"$(find "${Slvl2or25_directory}extdPSW/" -name "*.*")\"
 s350_source=\"$(find "${Slvl2or25_directory}extdPMW/" -name "*.*")\"
 s500_source=\"$(find "${Slvl2or25_directory}extdPLW/" -name "*.*")\"
-
 
 # Construct the IDL call (based on the NOTES Tracy made in mprep_directory)
 
@@ -190,6 +192,9 @@ refwave=500
 "
 convolve_herschel_images_cmd="ConvolveHerschelImages, wavearr, imarr, errarr, refwave=refwave"
 
+# Change directory to working directory so all file reads/writes are in there
+cd $working_dir
+
 # Make the IDL call using a "here document", which emulates interactive mode
 idl <<EOF
 ${make_herschel_images_import}
@@ -206,6 +211,5 @@ ${convolve_herschel_images_setup}
 ${convolve_herschel_images_cmd}
 EOF
 
-popd
 printf "done with IDL preprocessing; written to ${working_dir}
 "
