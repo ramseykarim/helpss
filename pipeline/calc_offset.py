@@ -197,6 +197,10 @@ class GNILCModel:
             first_qt_i = len(sorted_diff) // q
             last_qt_i = len(sorted_diff) * (q - 1) // q
             x_range = tuple(sorted_diff[i] for i in (first_qt_i, last_qt_i))
+            print("Calculating histogram bins...")
+            print("  data (min, max): {:.2f}, {:.2f}".format(
+                    sorted_diff[0], sorted_diff[-1]))
+            print("  histogram lims: {:.2f}, {:.2f}".format(*x_range))
         # Run numpy histogram function with default bins and limits
         # Rerun this with new bins/limits if these don't work
         d_hist, d_edges = np.histogram(diff_array_flat,
