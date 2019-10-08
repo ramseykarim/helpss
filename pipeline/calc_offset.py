@@ -198,9 +198,10 @@ class GNILCModel:
             print("  data (min, max): {:.2f}, {:.2f}".format(
                     sorted_diff[0], sorted_diff[-1]))
             print("  histogram lims: {:.2f}, {:.2f}".format(*x_range))
-        # Use Freedman-Diaconis rule for bin number
+        # Use Freedman-Diaconis rule (sort of) for bin number
         iqr = flquantiles(sorted_diff, 4, presorted=True)
-        n_bins = int(2*(iqr[1] - iqr[0]) / (len(sorted_diff) ** (1./3)))
+        bin_width = (2*(iqr[1] - iqr[0]) / (len(sorted_diff) ** (1./3)))
+        n_bins = (x_range[1] - x_range[0]) / bin_width
         print("Using {:d} bins (FD rule)".format(n_bins))
         # Run numpy histogram function with default bins and limits
         # Rerun this with new bins/limits if these don't work
