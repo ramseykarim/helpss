@@ -301,7 +301,8 @@ class GNILCModel:
                     label="Half Max" if i else "_nolabel_")
         # Plot mode (however calculated)
         plt.plot([self.stats['mode']], [self.stats['peak_val']], 'x', markersize=12,
-                 color='k', alpha=0.7, label="Offset: {:.2f} MJy/sr".format(mode))
+                 color='k', alpha=0.7,
+                 label="Offset: {:.2f} MJy/sr".format(self.stats['mode']))
         plt.title("Difference histogram: Predicted $-$ Observed")
         plt.xlabel("Pixel difference between predicted/observed (MJy/sr)")
         plt.ylabel("Histogram count")
