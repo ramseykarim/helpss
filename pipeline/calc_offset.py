@@ -178,7 +178,7 @@ class GNILCModel:
         Make masked difference image histogram and use it to calculate
         a few basic statistics. Save all this to the self.stats dictionary.
         :param n_bins: number of histogram bins. Default=128
-        :param x_range: histogram limits. Default is first/last 16-quantile.
+        :param x_range: histogram limits. Default is first/last 25-quantile.
             (updated by rkarim Oct 8, 2019)
             The default x_range is calculated for each region.
             You can rerun this function with a handpicked range for fine-tuned
@@ -192,15 +192,16 @@ class GNILCModel:
         # Check if x_range is None, and if so, calculate appropriate range
         if x_range is None:
             # Use first and last 16-quantile to define range
-            q = 16
             sorted_diff = np.sort(diff_array_flat)
-            first_qt_i = len(sorted_diff) // q
-            last_qt_i = len(sorted_diff) * (q - 1) // q
-            x_range = tuple(sorted_diff[i] for i in (first_qt_i, last_qt_i))
+            x_range = flquantiles(sorted_diff, 25, presorted=True)
             print("Calculating histogram bins...")
             print("  data (min, max): {:.2f}, {:.2f}".format(
                     sorted_diff[0], sorted_diff[-1]))
             print("  histogram lims: {:.2f}, {:.2f}".format(*x_range))
+        # Use Freedman-Diaconis rule for bin number
+        iqr = flquantiles(sorted_diff, 4, presorted=True)
+        n_bins = int(2*(iqr[1] - iqr[0]) / (len(sorted_diff) ** (1./3)))
+        print("Using {:d} bins (FD rule)".format(n_bins))
         # Run numpy histogram function with default bins and limits
         # Rerun this with new bins/limits if these don't work
         d_hist, d_edges = np.histogram(diff_array_flat,
@@ -370,6 +371,22 @@ class GNILCModel:
         return offset
 
 
+def flquantiles(x, q, presorted=False):
+    """
+    Get values of first and last q-quantiles of x values.
+    If x is multi-D, only works if first axis (0) is sample value axis.
+    :param x: sample values
+    :param q: number of quantiles. Should be >2
+    :param presorted: True if x array is already sorted. Could save
+        time if running this function multiple time on large x array.
+    :return: tuple(first, last) where elements have dtype of x[i]
+    """
+    sorted_x = np.sort(x, axis=0) if not presorted else x
+    first_quant = sorted_x[len(x) // q]
+    last_quant = sorted_x[(q-1)*len(x) // q]
+    return (first_quant, last_quant)
+
+
 def visual_min_max(array):
     """
     Get locations of some visually appropriate min/max for an n-D array.
@@ -378,9 +395,7 @@ def visual_min_max(array):
     :return: tuple of the values near (10%, 90%) in sorted order
     """
     # Clean, flatten, and sort array
-    array_1d = np.array(sorted(array[~np.isnan(array)].flatten()))  # FIXME need numpy sort
-    # Index for quartiles. Values won't be exact, but will be close
-    # enough if the array is large.
-    first_quartile = array_1d[array_1d.size // 10]
-    third_quartile = array_1d[9 * array_1d.size // 10]
-    return first_quartile, third_quartile
+    array_1d = array[~np.isnan(array)].flatten()
+    # Use above function for quartiles. Values won't be exact,
+    # but will be close enough if the array is large.
+    return flquantiles(array_1d, 10)
