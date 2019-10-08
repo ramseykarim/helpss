@@ -201,7 +201,7 @@ class GNILCModel:
         # Use Freedman-Diaconis rule (sort of) for bin number
         iqr = flquantiles(sorted_diff, 4, presorted=True)
         bin_width = (2*(iqr[1] - iqr[0]) / (len(sorted_diff) ** (1./3)))
-        n_bins = (x_range[1] - x_range[0]) / bin_width
+        n_bins = int((x_range[1] - x_range[0]) / bin_width)
         print("Using {:d} bins (FD rule)".format(n_bins))
         # Run numpy histogram function with default bins and limits
         # Rerun this with new bins/limits if these don't work
