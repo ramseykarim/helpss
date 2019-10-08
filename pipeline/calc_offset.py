@@ -75,6 +75,7 @@ class GNILCModel:
             "hist_xy": None,  # tuple(xarray, yarray) plot ready histogram
             "spline_roots": None,  # tuple(r1, r2) roots from spline fit
             "gauss_fit": None,  # tuple() Gaussian fit parameters
+            "mode": None,  # final mode determination, by some method
         }
         # Basic operations with reusable results
         self.accumulate_masks()
@@ -249,6 +250,7 @@ class GNILCModel:
             # Take mode to be the centroid between the first & third quartiles
             mode = np.sum(x_to_fit[mask_to_cntrd] * y_to_fit[mask_to_cntrd])
             mode /= np.sum(y_to_fit[mask_to_cntrd])
+        self.stats['mode'] = mode
         return mode
 
     def diagnostic_difference_histogram(self):
@@ -283,7 +285,7 @@ class GNILCModel:
                     color='g', linewidth=0.5,
                     label="Half Max" if i else "_nolabel_")
         # Plot mode (however calculated)
-        plt.plot([mode], [self.stats['peak_val']], 'x', markersize=12,
+        plt.plot([self.stats['mode']], [self.stats['peak_val']], 'x', markersize=12,
                  color='k', alpha=0.7, label="Offset: {:.2f} MJy/sr".format(mode))
         plt.title("Difference histogram: Predicted $-$ Observed")
         plt.xlabel("Pixel difference between predicted/observed (MJy/sr)")
