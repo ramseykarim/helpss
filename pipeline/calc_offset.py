@@ -173,18 +173,33 @@ class GNILCModel:
         # [predicted] - [observed] difference map
         self.difference = self.predicted_target_flux - target_data_convolved
 
-    def offset_statistics(self, n_bins=128, x_range=(25, 80)):
+    def offset_statistics(self, n_bins=128, x_range=None):
         """
         Make masked difference image histogram and use it to calculate
         a few basic statistics. Save all this to the self.stats dictionary.
         :param n_bins: number of histogram bins. Default=128
-        :param x_range: histogram limits. Default=(25, 80).
-            This range is acceptable for the Perseus test region, but may
-            need to be tweaked for future regions.
+        :param x_range: histogram limits. Default is first/last 16-quantile.
+            (updated by rkarim Oct 8, 2019)
+            The default x_range is calculated for each region.
+            You can rerun this function with a handpicked range for fine-tuned
+            results.
+            HISTORICAL COMMENT:
+            This range (25, 80) is acceptable for the Perseus test region,
+            but may need to be tweaked for future regions.
         """
+        # Get flattened difference array
+        diff_array_flat = self.difference[self.mask].ravel()
+        # Check if x_range is None, and if so, calculate appropriate range
+        if x_range is None:
+            # Use first and last 16-quantile to define range
+            q = 16
+            sorted_diff = np.sort(diff_array_flat)
+            first_qt_i = len(sorted_diff) // q
+            last_qt_i = len(sorted_diff) * (q - 1) // q
+            x_range = tuple(sorted_diff[i] for i in (first_qt_i, last_qt_i))
         # Run numpy histogram function with default bins and limits
         # Rerun this with new bins/limits if these don't work
-        d_hist, d_edges = np.histogram(self.difference[self.mask].ravel(),
+        d_hist, d_edges = np.histogram(diff_array_flat,
                                        bins=n_bins, range=x_range)
         # Set up plot-friendly arrays
         hist_x, hist_y = map(lambda x: np.array([x[0], x[1]]).T.flatten(),
