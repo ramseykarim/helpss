@@ -66,7 +66,16 @@ class GNILCModel:
         self.predicted_target_flux = None
         self.mask = None
         self.difference = None
-        self.stats = {}
+        self.stats = {
+            # If value is string or Exception, indicates/describes error
+            "peak_mode": None,  # location of maximum value in data
+            "peak_val": None,  # maximum value in data
+            "hist_vals_edges": None,  # tuple(histogram values, bin edges)
+            "bin_centers": None,  # histogram bin centers calculated from edges
+            "hist_xy": None,  # tuple(xarray, yarray) plot ready histogram
+            "spline_roots": None,  # tuple(r1, r2) roots from spline fit
+            "gauss_fit": None,  # tuple() Gaussian fit parameters
+        }
         # Basic operations with reusable results
         self.accumulate_masks()
         self.difference_to_target()
@@ -186,7 +195,7 @@ class GNILCModel:
         # Get crude mode using this peak value
         mode = bin_centers[d_hist == peak_val][0]
         # Save all these findings to a dictionary for later use
-        self.stats.update(dict(d_hist_edges=(d_hist, d_edges),
+        self.stats.update(dict(hist_vals_edges=(d_hist, d_edges),
                                hist_xy=(hist_x, hist_y),
                                bin_centers=bin_centers,
                                peak_val=peak_val, peak_mode=mode))
@@ -203,50 +212,77 @@ class GNILCModel:
         # Default the standard deviation to 10; should be of that order
         p0 = [peak_location, 10, peak_val]
         x_to_fit = self.stats['bin_centers']
-        y_to_fit = self.stats['d_hist_edges'][0]
+        y_to_fit = self.stats['hist_vals_edges'][0]
         # We will try to fit above half-max to avoid bias from a noisy/uneven floor
         # Find full-width half-max locations
         try:
             # Use spline to find roots of function sunk by half-max
             spline = UnivariateSpline(x_to_fit, y_to_fit - peak_val/2, s=0)
             r1, r2 = spline.roots()
+            self.stats['spline_roots'] = (r1, r2)
             mask_to_fit = (x_to_fit > r1) & (x_to_fit < r2)
-        except ValueError:
+            # If too few data points are included in this root mask,
+            #  fall through the "except" statement and use half-max mask
+            if np.sum(mask_to_fit.astype(int)) < 5:
+                raise ValueError("Spline roots are too close together")
+        except ValueError as e:
             # Approximate roots by limiting function to above half max
             # Depending on function shape, this may not be ideal. Assumes Gaussian.
             print("spline fit estimate of histogram FWHM failed; approximating")
+            self.stats['spline_roots'] = e
             mask_to_fit = y_to_fit > peak_val/2
-        # noinspection SpellCheckingInspection,PyTypeChecker
-        popt, pcov = curve_fit(rgu.gaussian, x_to_fit[mask_to_fit],
-                               y_to_fit[mask_to_fit], p0=p0)
-        # Save fitted Gaussian parameters to the stats dictionary
-        self.stats['gauss_fit'] = popt
-        # Return the mean of the Gaussian (more accurate mode of the distribution)
-        mode = popt[0]
+        # Try to fit a Gaussian to the values above half-max
+        # If this fails, centroid the middle half of the data
+        try:
+            # Gaussian fit to distribution
+            # noinspection SpellCheckingInspection,PyTypeChecker
+            popt, pcov = curve_fit(rgu.gaussian, x_to_fit[mask_to_fit],
+                                   y_to_fit[mask_to_fit], p0=p0)
+            # Save fitted Gaussian parameters to the stats dictionary
+            self.stats['gauss_fit'] = popt
+            # Return the mean of the Gaussian (more accurate mode of the distribution)
+            mode = popt[0]
+        except Exception as e:
+            print("Gaussian fit esimate of mean failed; approximating")
+            self.stats['gauss_fit'] = e
+            mask_to_cntrd = slice(len(x_to_fit) // 4, len(x_to_fit)*3 // 4)
+            # Take mode to be the centroid between the first & third quartiles
+            mode = np.sum(x_to_fit[mask_to_cntrd] * y_to_fit[mask_to_cntrd])
+            mode /= np.sum(y_to_fit[mask_to_cntrd])
         return mode
 
     def diagnostic_difference_histogram(self):
         """
         Plot the difference image histogram with overlaid Gaussian fit.
         """
-        mode, sigma, amplitude = self.stats['gauss_fit']
         plt.figure("Difference Histogram", figsize=(9, 5.5))
         # Plot the histogram itself
         plt.plot(*self.stats['hist_xy'], '-', color=(.1, .5, .1),
                  linewidth=3, label="$F_{GNILC} - F_{obs}$")
         curve_x = self.stats['hist_xy'][0]
-        # Trim Gaussian fit x extent to 3 sigma to make it look better
-        trim = 3 * sigma
-        lo_trim, hi_trim = mode - trim, mode + trim
-        # Plot the Gaussian fit
-        curve_x = curve_x[(curve_x > lo_trim) & (curve_x < hi_trim)]
-        curve_y = rgu.gaussian(curve_x, mode, sigma, amplitude)
-        eq_string = r"$Ae^{-(x - \mu)^{2}/2\sigma^{2}}$"
-        plt.plot(curve_x, curve_y, '-', color='k', alpha=.7,
-                 label="{:s}->({:s}: {:.1f}, {:s}: {:.1f}, A: {:.1f})".format(
-                     eq_string, r"$\mu$", mode,
-                     r"$\sigma$", sigma,
-                     amplitude))
+        # Check if Gaussian was valid
+        if not isinstance(self.stats['gauss_fit'], Exception):
+            mode, sigma, amplitude = self.stats['gauss_fit']
+            # Trim Gaussian fit x extent to 3 sigma to make it look better
+            trim = 3 * sigma
+            lo_trim, hi_trim = mode - trim, mode + trim
+            # Plot the Gaussian fit
+            curve_x = curve_x[(curve_x > lo_trim) & (curve_x < hi_trim)]
+            curve_y = rgu.gaussian(curve_x, mode, sigma, amplitude)
+            eq_string = r"$Ae^{-(x - \mu)^{2}/2\sigma^{2}}$"
+            plt.plot(curve_x, curve_y, '-', color='k', alpha=.7,
+                     label="{:s}->({:s}: {:.1f}, {:s}: {:.1f}, A: {:.1f})".format(
+                         eq_string, r"$\mu$", mode,
+                         r"$\sigma$", sigma,
+                         amplitude))
+        # Plot spline roots if calculated
+        if not isinstance(self.stats['spline_roots'], Exception):
+            for i, r in enumerate(self.stats['spline_roots']):
+                peak_val = self.stats['peak_val']
+                plt.plot([r, r], [peak_val*0.25, peak_val*0.75],
+                    color='g', linewidth=0.5,
+                    label="Half Max" if i else "_nolabel_")
+        # Plot mode (however calculated)
         plt.plot([mode], [self.stats['peak_val']], 'x', markersize=12,
                  color='k', alpha=0.7, label="Offset: {:.2f} MJy/sr".format(mode))
         plt.title("Difference histogram: Predicted $-$ Observed")
@@ -326,4 +362,3 @@ def visual_min_max(array):
     first_quartile = array_1d[array_1d.size // 10]
     third_quartile = array_1d[9 * array_1d.size // 10]
     return first_quartile, third_quartile
-
