@@ -195,7 +195,7 @@ class GNILCModel:
             sorted_diff = np.sort(diff_array_flat)
             x_range = flquantiles(sorted_diff, 25, presorted=True)
             print("Calculating histogram bins...")
-            print("  data (min, max): {:.2f}, {:.2f}".format(
+            print("  diffs (min, max): {:.2f}, {:.2f}".format(
                     sorted_diff[0], sorted_diff[-1]))
             print("  histogram lims: {:.2f}, {:.2f}".format(*x_range))
         # Use Freedman-Diaconis rule (sort of) for bin number
@@ -353,6 +353,8 @@ class GNILCModel:
         Plot the histogram diagnostic unless no_diagnostic is True.
         Plot the flux and mask diagnostics if full_diagnostic is True
             (and no_diagnostic is False)
+        Returns the offset after the plots are closed. Raises an error
+            if the offset is either NaN or unprecedentedly large.
         :param no_diagnostic: True if you do NOT want ANYTHING to plot
         :param full_diagnostic: True if you want THREE plots
         :return: offset calibration needed by target, in MJy/sr

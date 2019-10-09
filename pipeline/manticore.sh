@@ -5,22 +5,26 @@
 
 this_script_name="manticore.sh"
 
-manticore_version="1.4.2"
+# Defaults
+manticore_version="1.5"
+manticore="/sgraraid/filaments/manticore-${manticore_version}/manticore"
 flux_mod="45"
-perr_mod=""
-serr_mod=""
 beta_h="1.80"
 beta_c="2.10"
 T_hot="16.00"
 working_dir="$(pwd)/"
 n_param="3"
 n_cores="5"
-region="Per1"
+region="unassigned_name"
+
 
 print_usage_exit() {
     printf "${this_script_name}: usage: ./${this_script_name} [valid arguments]
     -h help (prints this message and exits)
+        use -hh to get manticore help (-hhh for verbose)
     -x run (even if no arguments are present) (at least one argument is necessary to run)
+    -n name of region (string)
+        default -n unassigned_name
     -H halo dust model/law (decimal spectral index, or OH5, DL5, or DL3)
         if 2 parameter fit, this is the only dust model
         default -h 1.80
@@ -54,15 +58,28 @@ print_usage_exit() {
         the PACS image with this offset must already exist (and be named properly)
         this script will do the formatting (0 padding, etc)
         default -f 45 (good for Per1 region)
+    -G grid sample
+        See manticore documentation
+    -R random sample (integer number)
+        See manticore documentation
+    -S systematic uncertainty sample
+        See manticore documentation
 "
-    exit 1
+    exit 0
 }
 
+# Useful regular expression
+re_float='^[0-9]{1,5}\.[0-9]$'
+re_int='^[0-9]+$'
+# Help request tracker
+hflag=""
+
 # parse arguments
-while getopts 'hxH:C:T:d:2l:s:t:o:f:' flag ; do
+while getopts 'hxn:H:C:T:d:2l:s:t:o:f:GR:S' flag ; do
     case "${flag}" in
-        h) print_usage_exit ;;
+        h) hflag="${hflag}h" ;;
         x) : ;;
+        n) region="${OPTARG}" ;;
         H) beta_h="${OPTARG}" ;;
         C) beta_c="${OPTARG}" ;;
         T) T_hot="${OPTARG}" ;;
@@ -77,12 +94,30 @@ while getopts 'hxH:C:T:d:2l:s:t:o:f:' flag ; do
         t) n_cores="${OPTARG}" ;;
         o) out="${OPTARG}" ;;
         f) flux_mod="${OPTARG}" ;;
+        G) GRSflag="G${GRSflag}" ;;
+        R) GRSflag="${GRSflag}R ${OPTARG}"
+            if [[ ! $OPTARG =~ $re_int ]] ; then
+                printf "$0: -R argument should be an integer\n"
+                exit 1
+            fi ;;
+        S) GRSflag="S${GRSflag}" ;;
         *) print_usage_exit ;;
     esac
 done
 
+# Handle help request
+if [[ $hflag =~ ^h$ ]] ; then
+  print_usage_exit
+elif [[ $hflag =~ ^h{2}$ ]] ; then
+  $manticore -h
+elif [[ $hflag =~ ^h{3,}$ ]] ; then
+  $manticore -hh
+fi
+echo "got here"
+exit 0
+# Exit out if there are no arguments
 if [[ -z $1 ]] ; then
-    printf "${this_script_name}: need at least one argument (-x to run with all defaults, -h for instructions)\n"
+    printf "${this_script_name}: need at least one argument (-h for instructions, -x to run with all defaults)\n"
     exit 1
 fi
 
@@ -127,8 +162,7 @@ else
 fi
 
 # Format flux offset as present in PACS image filename
-re_float='^[0-9]{1,5}\.[0-9]$'
-re_int='^[0-9]+$'
+# RE are defined above the argument parsing case statement
 if [[ $flux_mod =~ $re_float ]] ; then
     flux_mod=$(printf "plus%06.1f"  $flux_mod)
 elif [[ $flux_mod =~ $re_int ]] ; then
@@ -150,7 +184,7 @@ out=$(parse_filename $out full-${manticore_version}-${region}-${dust}${Thstub}.f
 # Print out a buch of status text
 echo "============================="
 echo "MANTICORE via bash wrapper"
-echo "Working in ${working_dir}"
+echo "Working in ${working_dir} on region ${region}"
 if [[ "$n_param" == "3" ]] ; then
     printf "Running 3 parameter (two component) fit\n"
 else
@@ -183,7 +217,6 @@ echo "using ${n_cores} cores on $(hostname) as $(whoami)" >> $log
 
 
 # Really put together the command line arguemnts
-manticore="/sgraraid/filaments/manticore-${manticore_version}/manticore"
 rccstub="-remapped-conv"
 fitsstub=".fits"
 dust=$(echo $dust | sed 's/-/:/g')
@@ -196,9 +229,9 @@ b2="${working_dir}SPIRE250um-"
 b3="${working_dir}SPIRE350um-"
 b4="${working_dir}SPIRE500um-"
 flux_args="${b1}${img}${flux_mod}${fitsstub} ${b2}${img}${fitsstub} ${b3}${img}${fitsstub} ${b4}${img}${fitsstub}"
-err_args="${b1}${err}${perr_mod}${fitsstub}" # need to prefix with "-e "
+err_args="${b1}${err}${fitsstub}" # need to prefix with "-e "
 for b in $b2 $b3 $b4 ; do
-  err_args="${err_args} -e ${b}${err}${serr_mod}${fitsstub}"
+  err_args="${err_args} -e ${b}${err}${fitsstub}"
 done
 
 if [[ "$n_param" == "3" ]] ; then
@@ -206,7 +239,8 @@ if [[ "$n_param" == "3" ]] ; then
 else
   call_command="${manticore} -${n_param} -g 100"
 fi
-call_command="${call_command} -v -a -t ${n_cores} -D ${dust} -l ${log} -o ${out} -e ${err_args} ${flux_args}"
+if [[ ! -z $GRSflag ]] ; then GRSflag="-${GRSflag}" ; fi
+call_command="${call_command} -v -a -t ${n_cores} -D ${dust} -l ${log} -o ${out} ${GRSflag} -e ${err_args} ${flux_args}"
 
 echo "*****************************"
 echo "CALLING MANTICORE AS:"
