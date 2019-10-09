@@ -17,6 +17,12 @@ n_param="3"
 n_cores="5"
 region="unassigned_name"
 
+# Check that manticore executable exists
+if [[ ! -f $manticore ]] ; then
+    printf "$0: manticore executable not found at\n  $manticore\n"
+    printf "You are using the machine $(hostname); try sgra\n"
+    exit 1
+fi
 
 print_usage_exit() {
     printf "${this_script_name}: usage: ./${this_script_name} [valid arguments]
@@ -109,12 +115,11 @@ done
 if [[ $hflag =~ ^h$ ]] ; then
   print_usage_exit
 elif [[ $hflag =~ ^h{2}$ ]] ; then
-  $manticore -h
+  $manticore -h ; exit 0
 elif [[ $hflag =~ ^h{3,}$ ]] ; then
-  $manticore -hh
+  $manticore -hv ; exit 0
 fi
-echo "got here"
-exit 0
+
 # Exit out if there are no arguments
 if [[ -z $1 ]] ; then
     printf "${this_script_name}: need at least one argument (-h for instructions, -x to run with all defaults)\n"
