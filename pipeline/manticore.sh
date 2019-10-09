@@ -20,7 +20,9 @@ region="unassigned_name"
 # Check that manticore executable exists
 if [[ ! -f $manticore ]] ; then
     printf "$0: manticore executable not found at\n  $manticore\n"
-    printf "You are using the machine $(hostname); try sgra\n"
+    if [[ ! "$(hostname | cut -d'.' -f1 )" == "sgra" ]] ; then
+        printf "You are using the machine $(hostname); try sgra\n"
+    fi
     exit 1
 fi
 
