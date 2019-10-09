@@ -369,6 +369,10 @@ class GNILCModel:
                 self.diagnostic_flux_map()
                 self.diagnostic_mask()
             plt.show()
+        if np.isnan(offset) or np.abs(offset) > 1e6:
+            msg = "Apparent issue with the derived offset. "
+            msg += "Check diagnostic plots with the full_diagnostic=True argument to this function."
+            raise RuntimeError(msg)
         return offset
 
 

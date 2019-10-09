@@ -31,50 +31,22 @@ model = calc_offset.GNILCModel(pacs_flux_filename)
 # The above call does most of the heavy lifting. Some useful things are stored in memory now.
 
 # Use the model to calculate the offset and show some diagnostic figures
-model.get_offset()
+derived_offset = model.get_offset(full_diagnostic=True)
 # get_offset() can also be run with the keyword arg "full_diagnostic=True",
 #    showing three plots rather than just one. See documentation for details.
-# The offset is about 45.5 in this test example, and I've been rounding down to 45.
+# The offset is about 45.5 in the Per1 test example, and I've been rounding down to 45.
 
 
 # Now that we have the offset, let's add it to the "-remapped-conv.fits" version
 pacs_flux_filename = working_dir + "PACS160um-image-remapped-conv.fits"
 
-calibrated_pacs_flux_filename = modify_fits.add_offset(45, pacs_flux_filename, savename=new_dir)
+# Apply the offset, rounded to nearest int, to the convolved PACS image.
+# If there was an issue with the automatic derivation, you can write this number in yourself.
+calibrated_pacs_flux_filename = modify_fits.add_offset(int(derived_offset), pacs_flux_filename, savename=new_dir)
 # These modify_fits functions all return the new filenames (complete with directory path)
 # NOTE: these will overwrite calibrated maps of the same filename (should be identical anyway)
 
-
-# PACS+SPIRE SYSTEMATIC UNCERTAINTY
-
-# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# !!!!!!!!!! UPDATE as of Oct 4, 2019 !!!!!!!!!!!!!!!!!!!!!
-# Just skip these, since we no longer add systematic error
-# to the statistical error maps (per Kevin's suggestion)
-# That means the processing ENDS HERE!
-# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-# The PACS error map needs 5%, and the SPIRE errors need 1.5%
-# PACS error map from Tracy's procedures should be called
-pacs_error_filename = working_dir + "PACS160um-error-remapped-conv.fits"
-# Add 5% error to the PACS error map, with the calibrated map as a reference
-modify_fits.add_systematic_error(0.05, pacs_error_filename, calibrated_pacs_flux_filename, savename=new_dir)
-
-
-# The SPIRE maps follow the same name convention and all need the same fraction of their flux
-#    added as systematic uncertainty
-
-# A simple loop will do
-def generate_spire_flux_filename(wavelength_um):
-    return working_dir + "SPIRE{:d}um-image-remapped-conv.fits".format(wavelength_um)
-
-def generate_spire_error_filename(wavelength_um):
-    return working_dir + "SPIRE{:d}um-error-remapped-conv.fits".format(wavelength_um)
-
-for band in [250, 350, 500]:
-    modify_fits.add_systematic_error(0.015, generate_spire_error_filename(band),
-        generate_spire_flux_filename(band), savename=new_dir)
+# There used to be a step in which we add systematic uncertainty to the error maps.
+# We no longer do this.
 
 # That should be it!
