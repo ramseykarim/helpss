@@ -35,6 +35,48 @@ def add_offset(offset, filename, extension=0, savename=None):
     return savename
 
 
+def multiply_flux(flux_coefficient, flux_filename, flux_extension=0,
+    source_folder=None, destination_folder=None):
+    """
+    Opens the flux map referenced by flux_filename in the source_folder,
+    multiplies it by the flux_coefficient, and saves the new image to
+    the destination_folder with the same flux_filename.
+    Example:
+    >>> multiply_flux(1.2, "PACS160um-image.fits", source_folder="./",
+            destination_folder="../MOD1.2/")
+    The above call will save the original image multiplied by 1.2 to
+    the full path ../MOD1.2/PACS160um-image.fits
+    :param flux_coefficient: float multiplier for new image.
+        New image = old image * flux_coefficient
+    :param flux_filename: the string filename (not path) of the file to
+        read. Will ALSO be the write name.
+    :param flux_extension: FITS extension at which flux is found.
+    :param source_folder: string path to folder where a flux map already
+        exists under the name flux_filename.
+    :param destination_folder: string path to folder in which to save new
+        map. If this matches source folder, this program will raise an error.
+    """
+    problem_exists = False
+    if source_folder is None:
+        problem_exists = True
+        print("Please set source_folder keyword argument.")
+    if destination_folder is None:
+        problem_exists = True
+        print("Please set destination_folder keyword argument.")
+    if problem_exists:
+        raise RuntimeError("Fix the above issue(s)")
+    if source_folder == destination_folder:
+        raise RuntimeError("Source and destination folders should not be the same.")
+    if source_folder[-1] != '/':
+        source_folder = source_folder + '/'
+    if destination_folder[-1] != '/':
+        destination_folder = destination_folder + '/'
+    data, header = fits.getdata(source_folder+flux_filename, flux_extension, header=True)
+    fits.writeto(destination_folder+flux_filename, data*flux_coefficient, header=header)
+    print("Saved {:s}".format(destination_folder+flux_filename))
+
+
+
 def add_systematic_error(flux_fraction, error_filename, flux_filename,
                          error_extension=0, flux_extension=0, savename=None):
     """

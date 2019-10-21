@@ -53,7 +53,7 @@ print_usage_exit() {
     -s filename of 2 parameter result (only used if running 3 parameter)
         see pattern rules for -o
         the file will only be read
-        default -s full-${manticore_version}-Per1-pow-1000-0.1-1.80.fits, in working directory (-d)
+        default is no -s command sent to manticore
     -t number of CPU threads to use (positive integer)
         default -t 5
     -o output filename
@@ -184,9 +184,10 @@ flux_mod="-${flux_mod}"
 # Parse log argument
 log=$(parse_filename $log mant_log.log)
 # Parse single component argument
-single=$(parse_filename $single full-${manticore_version}-Per1-pow-1000-0.1-1.80.fits)
+if [[ ! -z $single ]] ; then single=" -s $(parse_filename $single SINGLECANNOTBEDIRECTORY.ERROR)" ; fi
 # Parse output argument
 out=$(parse_filename $out full-${manticore_version}-${region}-${dust}${Thstub}.fits)
+
 
 # Print out a buch of status text
 echo "============================="
