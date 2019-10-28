@@ -8,8 +8,8 @@ from scipy.signal import convolve2d
 import sys
 
 
-per1_dir = "/n/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/"
-per1_dir = "../"
+per1_dir = "/n/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/" # jup
+per1_dir = "../" # laptop
 
 soln_5pcterr = "T4-absdiff-Per1J-3param-plus045-plus05.0pct-cpow-1000-0.1-2.10hpow-1000-0.1-1.80-bcreinit-Th15.95-Nh5E19,2E22.fits"
 soln_2p_5pcterr = "T4-absdiff-Per1J-plus045-plus05.0pct-pow-1000-0.1-1.80.fits"
@@ -227,6 +227,11 @@ def inpaint_mask(T, N):
     return mask_N, ~nanmask
 
 
+def display_inpaint_mask(mask):
+    plt.figure(figsize=(14, 9))
+    plt.title("Mask")
+    plt.imshow(mask, origin='lower')
+
 def boolean_edges(mask, valid_mask, valid_borders=False):
     # takes in a bool array
     # returns bool array of 1s from mask that border 0s
@@ -291,22 +296,15 @@ def paint(paint_mask, valid_mask, source_image, kernel, method='scipy'):
 
 
 if __name__ == "__main__":
+    plot_kwargs = dict(origin='lower', vmin=14, vmax=18)
     with fitsopen(soln_2p_5pcterr) as hdul:
         T = hdul[1].data
         N = hdul[3].data
         w = WCS(hdul[1].header)
-    # T = np.arange(50*50).astype(float).reshape(50, 50)
-    # T = (T+8)*16/((50*50)+8)
-    # T[20:30, 20:30] = 0
-    # T[:4, :] = np.nan
-    # T[-4:, :] = np.nan
-    # T[:, :4] = np.nan
-    # T[:, -4:] = np.nan
-    # N = np.arange(50*50).astype(float).reshape(50, 50)
-    # N[20:30, 20:30] = 2e22
     Torig, Norig = T.copy(), N.copy()
     method = 'manual'
-    T, N, conv_kernel = prepare_TN_maps(Torig, Norig, w, n_sigma=3, conv_sigma_mult='noconv', sigma_mult=2, method=method)
+    # Don't convolve images yet; set up ~2-3x beam inpaint kernel
+    T, N, conv_kernel = prepare_TN_maps(Torig, Norig, w, n_sigma=3, conv_sigma_mult='noconv', sigma_mult=5, method=method)
     if method == 'scipy' or method == 'manual':
         print("KERNEL SHAPE", conv_kernel.shape)
         T = np.pad(T, tuple([x//2]*2 for x in conv_kernel.shape), mode='constant', constant_values=np.nan)
@@ -328,14 +326,14 @@ if __name__ == "__main__":
     final_img = T
     final_img[np.where(ipmask | ~validmask)] = 0.
     plt.figure(figsize=(14, 9))
-    plt.imshow(final_img, origin='lower', vmin=14, vmax=18)
+    plt.imshow(final_img, **plot_kwargs)
     final_img = paint(ipmask, validmask, final_img, conv_kernel, method=method)
     if method == 'scipy' or method == 'manual':
         print("ORIGINAL SHAPE", Torig.shape)
         final_img = final_img[(conv_kernel.shape[0]//2):(-conv_kernel.shape[0]//2 + 1), (conv_kernel.shape[1]//2):(-conv_kernel.shape[1]//2 + 1)]
         print("FINAL SHAPE", final_img.shape)
     print("DONE")
-    final_img = prepare_TN_maps(final_img, N, w, conv_sigma_mult=2)[0]
+    final_img = prepare_TN_maps(final_img, N, w, conv_sigma_mult=(1./np.sqrt(2)))[0]
     plt.figure(figsize=(14, 9))
-    plt.imshow(final_img, origin='lower', vmin=14, vmax=18)
+    plt.imshow(final_img, **plot_kwargs)
     plt.show()
