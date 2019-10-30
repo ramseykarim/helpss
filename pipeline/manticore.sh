@@ -8,7 +8,7 @@ this_script_name="manticore.sh"
 # Defaults
 manticore_version="1.5"
 manticore="/sgraraid/filaments/manticore-${manticore_version}/manticore"
-flux_mod="45"
+flux_mod="0"
 beta_h="1.80"
 beta_c="2.10"
 T_hot="16.00"
@@ -18,7 +18,7 @@ n_cores="5"
 region="unassigned_name"
 
 # Check that manticore executable exists
-if [[ ! -f $manticore ]] ; then
+if [[ ! -e $manticore ]] ; then
     printf "$0: manticore executable not found at\n  $manticore\n"
     if [[ ! "$(hostname | cut -d'.' -f1 )" == "sgra" ]] ; then
         printf "You are using the machine $(hostname); try sgra\n"
@@ -42,7 +42,6 @@ print_usage_exit() {
     -T halo temperature in Kelvin (number) (only used if running 3 parameter)
         default -T 16.00
     -d working directory containing input data
-        NEEDS to end in '/'
         default -d <current directory> ($(pwd)/)
     -2 run 2-parameter (single-component) Manticore fit (no argument)
         default (no flag) is 3 parameter
@@ -65,7 +64,7 @@ print_usage_exit() {
         either integer or float, shouldn't be more than 6 digits
         the PACS image with this offset must already exist (and be named properly)
         this script will do the formatting (0 padding, etc)
-        default -f 45 (good for Per1 region)
+        default -f 0 (uses the unmodified PACS160um image)
     -G grid sample
         See manticore documentation
     -R random sample (integer number)
@@ -77,6 +76,7 @@ print_usage_exit() {
 }
 
 # Useful regular expression
+re_zero='^0+\.?0*$'
 re_float='^[0-9]{1,5}\.[0-9]$'
 re_int='^[0-9]+$'
 # Help request tracker
@@ -92,8 +92,8 @@ while getopts 'hxn:H:C:T:d:2l:s:t:o:f:GR:S' flag ; do
         C) beta_c="${OPTARG}" ;;
         T) T_hot="${OPTARG}" ;;
         d) working_dir="${OPTARG}"
-            if [[ "$working_dir" != *\/ ]] ; then
-                printf "$0: invalid directory name -- d (-h for instructions)\n"
+            if [[ ! -d $working_dir ]] ; then
+                printf "$0: directory does not exist -- d (-h for instructions)\n"
                 exit 1
             fi ;;
         2) n_param="2" ;;
@@ -170,16 +170,16 @@ fi
 
 # Format flux offset as present in PACS image filename
 # RE are defined above the argument parsing case statement
-if [[ $flux_mod =~ $re_float ]] ; then
-    flux_mod=$(printf "plus%06.1f"  $flux_mod)
+if [[  $flux_mod =~ $re_zero ]] ; then
+    flux_mod=""
+elif [[ $flux_mod =~ $re_float ]] ; then
+    flux_mod="-$(printf "plus%06.1f"  $flux_mod)"
 elif [[ $flux_mod =~ $re_int ]] ; then
-    flux_mod=$(printf "plus%06d"  $flux_mod)
+    flux_mod="-$(printf "plus%06d"  $flux_mod)"
 else
     printf "Invalid PACS flux offset: %s (-h for instructions)\n" $flux_mod
     exit 1
 fi
-flux_mod="-${flux_mod}"
-
 
 # Parse log argument
 log=$(parse_filename $log mant_log.log)
@@ -243,7 +243,7 @@ for b in $b2 $b3 $b4 ; do
 done
 
 if [[ "$n_param" == "3" ]] ; then
-  call_command="${manticore} -3 -T ${T_hot} -s ${single}  -c 0.0 -g 100,100"
+  call_command="${manticore} -3 -T ${T_hot} ${single}  -c 0.0 -g 100,100"
 else
   call_command="${manticore} -${n_param} -g 100"
 fi
