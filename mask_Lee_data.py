@@ -1,4 +1,4 @@
-plotting_remotely = True
+plotting_remotely = False
 import numpy as np
 import matplotlib
 if plotting_remotely:
@@ -28,16 +28,40 @@ def show_plot():
 		plt.show()
 
 
-lee_dir = "/n/sgraraid/filaments/lgm/manticore-test/L723/"
-comp_stub = "TEST1-"
-comp1_dir = comp_stub + "1comp/"
-comp2_dir = comp_stub + "2comp*/"
-fits_stub = "*.fits"
-comp1_fn = glob.glob(lee_dir+comp1_dir+fits_stub)[0]
-comp2_fns = glob.glob(lee_dir+comp2_dir+fits_stub)
+# lee_dir = "/n/sgraraid/filaments/lgm/manticore-test/L723/"
+# comp_stub = "TEST1-"
+# comp1_dir = comp_stub + "1comp/"
+# comp2_dir = comp_stub + "2comp*/"
+# fits_stub = "*.fits"
+# comp1_fn = glob.glob(lee_dir+comp1_dir+fits_stub)[0]
+# comp2_fns = glob.glob(lee_dir+comp2_dir+fits_stub)
+#
+# nominal_2p_fn = comp1_fn
+# nominal_3p_fn = comp2_fns[0]
 
-nominal_2p_fn = comp1_fn
-nominal_3p_fn = comp2_fns[0]
+nominal_2p_fn = "../full-1.5-L723-pow-1000-0.1-1.80.fits"
+nominal_3p_fn = "../full-1.5-L723-pow-1000-0.1-1.80,pow-1000-0.1-2.10-Th16.40.fits"
+
+def masking_gridsamp():
+    olkw = dict(origin='lower')
+    dTkw = dict(**olkw, vmin=0, vmax=2)
+    Nkw = dict(**olkw, vmin=1e21, vmax=3e21)
+    with fits.open(nominal_2p_fn) as hdul:
+        T = hdul[1].data
+        N = hdul[3].data
+        w = WCS(hdul[1].header)
+    frames_to_get = {"Tc": 5, "dTc": 6, "band160": 20}
+    with fits.open(nominal_3p_fn) as hdul:
+        for k in frames_to_get:
+            frames_to_get[k] = hdul[frames_to_get[k]].data
+    frames_to_get.update({'T': T, 'N': N})
+    plt.figure(figsize=(14, 7))
+    plt.subplot(121)
+    plt.imshow(frames_to_get['N'], **Nkw)
+    frames_to_get['N'][np.isnan(frames_to_get['band160'])] = np.nan
+    plt.subplot(122)
+    plt.imshow(frames_to_get['N'], **Nkw)
+    show_plot()
 
 def inpainting():
     olkw = dict(origin='lower')
@@ -101,8 +125,6 @@ def inpainting():
         axes[2].imshow(final_img, **plotT_kwargs)
         show_plot()
 
-inpainting()
-
 def masking():
     with fits.open(nominal_2p_fn) as hdul:
         T2 = hdul[1].data
@@ -149,3 +171,6 @@ def masking():
     plt.imshow(pltimg_c, origin='lower', **lims)
     plt.colorbar()
     plt.show()
+
+if __name__ == "__main__":
+    masking_gridsamp()
