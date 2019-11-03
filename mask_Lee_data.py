@@ -27,19 +27,20 @@ def show_plot():
 	else:
 		plt.show()
 
-lee_dir = "/n/sgraraid/filaments/lgm/manticore-test/L723/"
-comp_stub = "TEST1-"
-comp1_dir = comp_stub + "1comp/"
-comp2_dir = comp_stub + "2comp*/"
-fits_stub = "*.fits"
-comp1_fn = glob.glob(lee_dir+comp1_dir+fits_stub)[0]
-comp2_fns = glob.glob(lee_dir+comp2_dir+fits_stub)
+# lee_dir = "/n/sgraraid/filaments/lgm/manticore-test/L723/"
+# comp_stub = "TEST1-"
+# comp1_dir = comp_stub + "1comp/"
+# comp2_dir = comp_stub + "2comp*/"
+# fits_stub = "*.fits"
+# comp1_fn = glob.glob(lee_dir+comp1_dir+fits_stub)[0]
+# comp2_fns = glob.glob(lee_dir+comp2_dir+fits_stub)
+#
+# nominal_2p_fn = comp1_fn
+# nominal_3p_fn = next(x for x in comp2_fns if 'grid' in x)
 
-nominal_2p_fn = comp1_fn
-nominal_3p_fn = next(x for x in comp2_fns if 'grid' in x)
-
-# nominal_2p_fn = "../full-1.5-L723-pow-1000-0.1-1.80.fits"
-# nominal_3p_fn = "../full-1.5-L723-pow-1000-0.1-1.80,pow-1000-0.1-2.10-Th16.40.fits"
+nominal_2p_fn = "../full-1.5-L723-pow-1000-0.1-1.80.fits"
+nominal_2p_fn_210 = "../full-1.5-L723-pow-1000-0.1-2.10.fits"
+nominal_3p_fn = "../full-1.5-L723-pow-1000-0.1-1.80,pow-1000-0.1-2.10-Th16.40.fits"
 
 BINS = 64
 def histogram(x, x_lim=None):
@@ -59,6 +60,9 @@ def apply_nanmask(img, true_if_nan):
 def flatten(img):
     return img[~np.isnan(img)].flatten()
 
+def log10(x):
+    return np.log10(x + 1e18)
+
 def masking_gridsamp():
     olkw = dict(origin='lower')
     dTkw = dict(**olkw, vmin=0, vmax=2)
@@ -73,14 +77,18 @@ def masking_gridsamp():
         for k in frames_to_get:
             frames_to_get[k] = hdul[frames_to_get[k]].data
     frames_to_get.update({'T': T, 'N': N})
+    with fits.open(nominal_2p_fn_210) as hdul:
+        f2g = {'N2.1':3, 'T2.1':1}
+        for k in f2g:
+            frames_to_get[k] = hdul[f2g[k]].data
     pacs_nanmask = np.isnan(frames_to_get['band160'])
-    frames_to_test = ('N', 'Nh', 'Nc', 'Tc', 'T')
-    for x in frames_to_test:
+    frames_flat = {}
+    for x in frames_to_get:
         apply_nanmask(frames_to_get[x], pacs_nanmask)
-    Nflat, Nhflat, Ncflat, Tcflat, Tflat = (flatten(frames_to_get[x]) for x in frames_to_test)
-    Nflat = np.log10(Nflat + 1e18)
-    Nhflat = np.log10(Nhflat + 1e18)
-    Ncflat = np.log10(Ncflat + 1e18)
+        img_flat = flatten(frames_to_get[x])
+        if 'N' in x:
+            img_flat = np.log10(img_flat + 1e18)
+        frames_flat[x] = img_flat
 
     def Nh_is_too_high_in_dense_regions():
         mask = (frames_to_get['Nh'] > 10**21.06) & (frames_to_get['N'] > 21.65)
@@ -100,17 +108,30 @@ def masking_gridsamp():
         axes[0].imshow(mask, **olkw)
         axes[1].imshow(frames_to_get['Nc'], **Nkw)
 
-    def scatter_plot():
+    def N_scatter_plot():
         axScatter = plt.subplot(111)
-        plt.scatter(Nflat, Nhflat, marker='.', label='Nh')
-        plt.scatter(Nflat, Ncflat, marker='.', label='Nc')
+        plt.scatter(frames_flat['N'], frames_flat['Nh'], marker='.', label='Nh')
+        plt.scatter(frames_flat['N'], frames_flat['Nc'], marker='.', label='Nc')
+        plt.scatter(frames_flat['N'], frames_flat['N2.1'], marker='.', label='N2.1')
         plt.legend()
         lolim = np.max([plt.xlim()[0], plt.ylim()[0]])
         hilim = np.min([plt.xlim()[1], plt.ylim()[1]])
-        plt.plot([lolim, hilim], [lolim+0.2, hilim+0.2])
+        plt.plot([lolim, hilim], [lolim, hilim], '--', label='N=N')
+        plt.plot([lolim, hilim], [lolim+0.2, hilim+0.2], '--', label='N=N+0.2')
 
-    Nc_is_too_high_in_thin_regions()
-    # scatter_plot()
+    def T_scatter_plot():
+        axScatter = plt.subplot(111)
+        plt.scatter(frames_flat['T2.1'], frames_flat['T'], marker='.', label='T1.8', alpha=0.7)
+        plt.scatter(frames_flat['T2.1'], frames_flat['Tc'], marker='.', label='Tc', alpha=0.7)
+        plt.plot([np.min(frames_flat['T2.1']), np.max(frames_flat['T2.1'])], [16.4]*2, '--', label='Th')
+        lolim = np.max([plt.xlim()[0], plt.ylim()[0]])
+        hilim = np.min([plt.xlim()[1], plt.ylim()[1]])
+        plt.plot([lolim, hilim], [lolim, hilim], '--', label='T=T')
+        plt.legend()
+
+
+    # Nc_is_too_high_in_thin_regions()
+    T_scatter_plot()
     show_plot()
 
 def inpainting():
