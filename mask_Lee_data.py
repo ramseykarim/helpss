@@ -27,40 +27,90 @@ def show_plot():
 	else:
 		plt.show()
 
+lee_dir = "/n/sgraraid/filaments/lgm/manticore-test/L723/"
+comp_stub = "TEST1-"
+comp1_dir = comp_stub + "1comp/"
+comp2_dir = comp_stub + "2comp*/"
+fits_stub = "*.fits"
+comp1_fn = glob.glob(lee_dir+comp1_dir+fits_stub)[0]
+comp2_fns = glob.glob(lee_dir+comp2_dir+fits_stub)
 
-# lee_dir = "/n/sgraraid/filaments/lgm/manticore-test/L723/"
-# comp_stub = "TEST1-"
-# comp1_dir = comp_stub + "1comp/"
-# comp2_dir = comp_stub + "2comp*/"
-# fits_stub = "*.fits"
-# comp1_fn = glob.glob(lee_dir+comp1_dir+fits_stub)[0]
-# comp2_fns = glob.glob(lee_dir+comp2_dir+fits_stub)
-#
-# nominal_2p_fn = comp1_fn
-# nominal_3p_fn = comp2_fns[0]
+nominal_2p_fn = comp1_fn
+nominal_3p_fn = next(x for x in comp2_fns if 'grid' in x)
 
-nominal_2p_fn = "../full-1.5-L723-pow-1000-0.1-1.80.fits"
-nominal_3p_fn = "../full-1.5-L723-pow-1000-0.1-1.80,pow-1000-0.1-2.10-Th16.40.fits"
+# nominal_2p_fn = "../full-1.5-L723-pow-1000-0.1-1.80.fits"
+# nominal_3p_fn = "../full-1.5-L723-pow-1000-0.1-1.80,pow-1000-0.1-2.10-Th16.40.fits"
+
+BINS = 64
+def histogram(x, x_lim=None):
+    # yet another histogram routine
+    # x should be flat
+    if x_lim is None:
+        x_lim = (np.min(x), np.max(x))
+    dhist, dedges = np.histogram(x, bins=BINS, range=x_lim)
+    prep_arr = lambda a, b: np.array([a, b]).T.flatten()
+    histx, histy = prep_arr(dedges[:-1], dedges[1:]), prep_arr(dhist, dhist)
+    bin_centers = (dedges[:-1]+dedges[1:])/2
+    return {"hist": dhist, "edges": dedges, "bin_centers": bin_centers, "histxy": (histx, histy)}
+
+def apply_nanmask(img, true_if_nan):
+    img[true_if_nan] = np.nan
+
+def flatten(img):
+    return img[~np.isnan(img)].flatten()
 
 def masking_gridsamp():
     olkw = dict(origin='lower')
     dTkw = dict(**olkw, vmin=0, vmax=2)
+    Tkw = dict(**olkw, vmin=9, vmax=14)
     Nkw = dict(**olkw, vmin=1e21, vmax=3e21)
     with fits.open(nominal_2p_fn) as hdul:
         T = hdul[1].data
         N = hdul[3].data
         w = WCS(hdul[1].header)
-    frames_to_get = {"Tc": 5, "dTc": 6, "band160": 20}
+    frames_to_get = {"Nh": 3, "Tc": 5, "dTc": 6, 'Nc': 7, "band160": 20}
     with fits.open(nominal_3p_fn) as hdul:
         for k in frames_to_get:
             frames_to_get[k] = hdul[frames_to_get[k]].data
     frames_to_get.update({'T': T, 'N': N})
-    plt.figure(figsize=(14, 7))
-    plt.subplot(121)
-    plt.imshow(frames_to_get['N'], **Nkw)
-    frames_to_get['N'][np.isnan(frames_to_get['band160'])] = np.nan
-    plt.subplot(122)
-    plt.imshow(frames_to_get['N'], **Nkw)
+    pacs_nanmask = np.isnan(frames_to_get['band160'])
+    frames_to_test = ('N', 'Nh', 'Nc', 'Tc', 'T')
+    for x in frames_to_test:
+        apply_nanmask(frames_to_get[x], pacs_nanmask)
+    Nflat, Nhflat, Ncflat, Tcflat, Tflat = (flatten(frames_to_get[x]) for x in frames_to_test)
+    Nflat = np.log10(Nflat + 1e18)
+    Nhflat = np.log10(Nhflat + 1e18)
+    Ncflat = np.log10(Ncflat + 1e18)
+
+    def Nh_is_too_high_in_dense_regions():
+        mask = (frames_to_get['Nh'] > 10**21.06) & (frames_to_get['N'] > 21.65)
+        fig, axes = plt.subplots(ncols=2, sharex=True, sharey=True)
+        axes[0].imshow(mask, **olkw)
+        axes[1].imshow(frames_to_get['Nc'], **Nkw)
+
+    def Nh_is_too_low_in_thin_regions():
+        mask = (frames_to_get['Nh'] < 10**20.4)
+        fig, axes = plt.subplots(ncols=2, sharex=True, sharey=True)
+        axes[0].imshow(mask, **olkw)
+        axes[1].imshow(frames_to_get['Nh'], **Nkw)
+
+    def Nc_is_too_high_in_thin_regions():
+        mask = (frames_to_get['Nc'] > frames_to_get['N'] * 10**0.2) & (frames_to_get['N'] < 10**21.43)
+        fig, axes = plt.subplots(ncols=2, sharex=True, sharey=True)
+        axes[0].imshow(mask, **olkw)
+        axes[1].imshow(frames_to_get['Nc'], **Nkw)
+
+    def scatter_plot():
+        axScatter = plt.subplot(111)
+        plt.scatter(Nflat, Nhflat, marker='.', label='Nh')
+        plt.scatter(Nflat, Ncflat, marker='.', label='Nc')
+        plt.legend()
+        lolim = np.max([plt.xlim()[0], plt.ylim()[0]])
+        hilim = np.min([plt.xlim()[1], plt.ylim()[1]])
+        plt.plot([lolim, hilim], [lolim+0.2, hilim+0.2])
+
+    Nc_is_too_high_in_thin_regions()
+    # scatter_plot()
     show_plot()
 
 def inpainting():
