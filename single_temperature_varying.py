@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.wcs import WCS
+from astropy import units as u
 import compare_images as cimg
 from math import ceil
 from scipy.signal import convolve2d
@@ -23,8 +24,8 @@ def prepare_convolution(w, beam, n_sigma=3, method='scipy', data_shape=None):
     # Gaussian is returned in smaller array that includes contributions out to n_sigma
     # Find pixel scale, in arcminutes
     # methods = 'scipy' or 'fft'
-    dtheta_dpix_i = np.sqrt(np.sum([(x2 - x1)**2 for (x1, x2) in zip(w.wcs_pix2world(0, 0, 0), w.wcs_pix2world(0, 1, 0))]))*60
-    dtheta_dpix_j = np.sqrt(np.sum([(x2 - x1)**2 for (x1, x2) in zip(w.wcs_pix2world(0, 0, 0), w.wcs_pix2world(1, 0, 0))]))*60
+    dtheta_dpix_i = w.array_index_to_world(0, 0).separation(w.array_index_to_world(0, 1)).to('arcmin').to_value()
+    dtheta_dpix_j = w.array_index_to_world(0, 0).separation(w.array_index_to_world(1, 0)).to('arcmin').to_value()
     dthetas = [dtheta_dpix_i, dtheta_dpix_j]
     dtheta_dpix_avg = (dtheta_dpix_i + dtheta_dpix_j)/2  # arcminutes
     sigma_arcmin = beam / 2.35 # FWHM to standard deviation

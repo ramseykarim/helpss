@@ -1,6 +1,7 @@
 import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
+from astropy import units as u
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 import sys
@@ -40,8 +41,8 @@ def prepare_convolution(w, beam_small, beam_large, data_shape):
 	# Given a WCS object, two beam FWHMs in arcminutes (beam_small < beam_large), and image shape
 	#  returns the Gaussian needed to bring an image at beam_small resolution down to beam_large resolution
 	# Find pixel scale, in arcminutes
-	dtheta_dpix_i = np.sqrt(np.sum([(x2 - x1)**2 for (x1, x2) in zip(w.wcs_pix2world(0, 0, 0), w.wcs_pix2world(0, 1, 0))]))*60
-	dtheta_dpix_j = np.sqrt(np.sum([(x2 - x1)**2 for (x1, x2) in zip(w.wcs_pix2world(0, 0, 0), w.wcs_pix2world(1, 0, 0))]))*60
+    dtheta_dpix_i = w.array_index_to_world(0, 0).separation(w.array_index_to_world(0, 1)).to('arcmin').to_value()
+    dtheta_dpix_j = w.array_index_to_world(0, 0).separation(w.array_index_to_world(1, 0)).to('arcmin').to_value()
 	dtheta_dpix_avg = (dtheta_dpix_i + dtheta_dpix_j)/2  # arcminutes
 	# Using pixel scale, generate a grid for the Gaussian
 	i, j = np.arange(data_shape[0]) - data_shape[0]//2, np.arange(data_shape[1]) - data_shape[1]//2
