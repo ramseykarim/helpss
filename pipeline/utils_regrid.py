@@ -85,15 +85,11 @@ def wcs2galactic(wcs_obj, ij_list):
     :return: numpy array of shape (n x m, 2) containing galactic
         l, b coordinates corresponding to the input ij_list
     """
-    # Convert i/j list to X/Y list (flip coordinate order)
-    xy_list = ij_list[:, ::-1].copy()
-    # Convert pixel X/Y list to RA/DEC coordinates
-    coord_list = wcs_obj.wcs_pix2world(xy_list, 0)  # 0-indexed, numpy
-    ra_list, dec_list = coord_list[:, 0], coord_list[:, 1]
-    # Convert RA/DEC to galactic lon/lat
-    coord_list = SkyCoord(Angle(ra_list, unit=units.deg),
-                          dec_list * units.deg, frame=FK5)
+    # Get SkyCoords from ij array indices
+    coord_list = wcs_obj.array_index_to_world(ij_list[:, 0], ij_list[:, 1])
+    # Access the galactic l, b components of SkyCoords
     l, b = coord_list.galactic.l.degree, coord_list.galactic.b.degree
+
     return l, b
 
 
@@ -459,11 +455,11 @@ def regrid_fits(source_array, source_head, target_array, target_head,
     t_pixel_list, s_pixel_list = (make_ij_list(a.shape, mask=~np.isnan(a))
                                   for a in (target_array, source_array))
     # Pixel lists are i,j (row, col), so need to reverse into X,Y for pix2world
-    t_coord_list, s_coord_list = (WCS(h).wcs_pix2world(p[:, ::-1])
+    t_coord_list, s_coord_list = (WCS(h).array_index_to_world(p[:, 0], p[:, 1])
                                   for h, p in ((target_head, t_pixel_list),
                                                (source_head, s_pixel_list)))
     # The source data values, flattened and in the pixel & coordinate list order
-    s_value_list = source_array[s_pixel_list[:, 0], s_pixel_list[:, 0]]
+    s_value_list = source_array[s_pixel_list[:, 0], s_pixel_list[:, 1]]
     # Interpolate via scipy griddata and grid the result
     interp_values_list = griddata(s_coord_list, s_value_list, t_coord_list,
                                   method=method)
@@ -484,10 +480,8 @@ def prepare_convolution(w, beam, data_shape):
     :return: Gaussian convolution kernel with FWHM of beam. 2d array of data_shape
     """
     # Find pixel scale, in arcminutes
-    dtheta_dpix_i = np.sqrt(
-        np.sum([(x2 - x1) ** 2 for (x1, x2) in zip(w.wcs_pix2world(0, 0, 0), w.wcs_pix2world(0, 1, 0))])) * 60
-    dtheta_dpix_j = np.sqrt(
-        np.sum([(x2 - x1) ** 2 for (x1, x2) in zip(w.wcs_pix2world(0, 0, 0), w.wcs_pix2world(1, 0, 0))])) * 60
+    dtheta_dpix_i = w.array_index_to_world(0, 0).separation(w.array_index_to_world(1, 0)).to('arcmin').to_value()
+    dtheta_dpix_j = w.array_index_to_world(0, 0).separation(w.array_index_to_world(0, 1)).to('arcmin').to_value()
     dthetas = [dtheta_dpix_i, dtheta_dpix_j]
     # FWHM to standard deviation
     sigma_arcmin = beam / 2.35
