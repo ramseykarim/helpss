@@ -27,7 +27,7 @@ Sobs_directory=""
 mprep_directory=$default_mprep_dir
 object_name=$default_object
 working_dir=$default_working_dir
-
+pacs70=false
 
 print_usage_exit() {
     printf "${this_script_name} usage: ./${this_script_name} [valid arguments]
@@ -84,7 +84,7 @@ sanitize_directory() {
 }
 
 # parse arguments
-while getopts 'hxd:S:P:i:n:o:' flag ; do
+while getopts 'hxd:S:P:i:n:o:7' flag ; do
     case "${flag}" in
         h) print_usage_exit ;;
         x) : ;;
@@ -99,6 +99,7 @@ while getopts 'hxd:S:P:i:n:o:' flag ; do
         n) object_name="${OPTARG}" ;;
         o) working_dir="$(sanitize_directory ${OPTARG})"
             if [[ $? -eq 1 ]] ; then complain_directory "${working_dir}" ; fi ;;
+        7) pacs70=true ;;
         *) print_usage_exit ;;
     esac
 done
@@ -137,6 +138,9 @@ fi
 
 # The directory structure of the PACS and SPIRE data is fairly standard
 # We can assume the name of these subdirectories and that they each contain 1 file
+if [[ "$pacs70" = true ]] ; then
+    p70_source=\"$(find "${Plvl2or25_directory}HPPJSMAPB/" -name "*.*")\"
+fi
 p160_source=\"$(find "${Plvl2or25_directory}HPPJSMAPR/" -name "*.*")\"
 s250_source=\"$(find "${Slvl2or25_directory}extdPSW/" -name "*.*")\"
 s350_source=\"$(find "${Slvl2or25_directory}extdPMW/" -name "*.*")\"
@@ -152,17 +156,30 @@ remap_images_import="${idlrun}RemapImages"
 convolve_herschel_images_import="${idlrun}ConvolveHerschelImages"
 
 # MakeHerschelImages setup and call
+if [[ "$pacs70" = true ]] ; then
+make_herschel_images_setup="filearr=strarr(5)
+filearr(0)=${p70_source}
+filearr(1)=${p160_source}
+filearr(2)=${s250_source}
+filearr(3)=${s350_source}
+filearr(4)=${s500_source}
+"
+else
 make_herschel_images_setup="filearr=strarr(4)
 filearr(0)=${p160_source}
 filearr(1)=${s250_source}
 filearr(2)=${s350_source}
 filearr(3)=${s500_source}
 "
+fi
 # Note that this will dump outputs to current working directory
 make_herschel_images_cmd="MakeHerschelImages, filearr, object=\"${object_name}\""
 # Get filenames for these newly created files (standard filenaming scheme)
 img="image"
 err="error"
+if [[ "$pacs70" = true ]] ; then
+    p70="\"./PACS70um-"
+fi
 p160="\"./PACS160um-"
 s250="\"./SPIRE250um-"
 s350="\"./SPIRE350um-"
@@ -172,6 +189,19 @@ fits=".fits\""
 # RemapImages setup and call
 # Reference is SPIRE500 (largest pixels, so least number of pixels)
 # Need to remap other 3 images+errors (6 total files) to the reference
+if [[ "$pacs70" = true ]] ; then
+remap_images_setup="reference=${s500}${img}${fits}
+filearr=strarr(8)
+filearr(0)=${p70}${img}${fits}
+filearr(1)=${p70}${err}${fits}
+filearr(2)=${p160}${img}${fits}
+filearr(3)=${p160}${err}${fits}
+filearr(4)=${s250}${img}${fits}
+filearr(5)=${s250}${err}${fits}
+filearr(6)=${s350}${img}${fits}
+filearr(7)=${s350}${err}${fits}
+"
+else
 remap_images_setup="reference=${s500}${img}${fits}
 filearr=strarr(6)
 filearr(0)=${p160}${img}${fits}
@@ -181,17 +211,26 @@ filearr(3)=${s250}${err}${fits}
 filearr(4)=${s350}${img}${fits}
 filearr(5)=${s350}${err}${fits}
 "
+fi
 remap_images_cmd="RemapImages, reference, filearr"
 
 
 # ConvolveHerschelImages setup and call
 # Convolving to reference wavelength of 500um (worst resolution)
 rmp="-remapped"
+if [[ "$pacs70" = true ]] ; then
+convolve_herschel_images_setup="wavearr=[70, 160, 250, 350, 500]
+imarr=[${p70}\", ${p160}\", ${s250}\", ${s350}\", ${s500}\"]+\"${img}${rmp}${fits}
+errarr=[${p70}\", ${p160}\", ${s250}\", ${s350}\", ${s500}\"]+\"${err}${rmp}${fits}
+refwave=500
+"
+else
 convolve_herschel_images_setup="wavearr=[160, 250, 350, 500]
 imarr=[${p160}\", ${s250}\", ${s350}\", ${s500}\"]+\"${img}${rmp}${fits}
 errarr=[${p160}\", ${s250}\", ${s350}\", ${s500}\"]+\"${err}${rmp}${fits}
 refwave=500
 "
+fi
 convolve_herschel_images_cmd="ConvolveHerschelImages, wavearr, imarr, errarr, refwave=refwave"
 
 # Change directory to working directory so all file reads/writes are in there
