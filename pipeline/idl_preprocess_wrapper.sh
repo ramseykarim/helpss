@@ -49,7 +49,7 @@ print_usage_exit() {
         if you are running this on sgra, you may specify this without the '/n' prefix
         default -i ${default_mprep_dir}
     -n object name to assign in case the name is missing
-        default -o ${default_object}
+        default -n ${default_object}
     -o output directory to which to write the processed FITS files
         the directory MUST already exist
         default -o <current directory> ($(pwd)/)
