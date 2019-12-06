@@ -16,6 +16,7 @@ working_dir="$(pwd)/"
 n_param="3"
 n_cores="5"
 region="unassigned_name"
+pacs70_flux_mod=""
 
 # Check that manticore executable exists
 if [[ ! -e $manticore ]] ; then
@@ -60,11 +61,14 @@ print_usage_exit() {
         if contains '/' but does not end in '/', assumes this specifies full file name and path to which to write
         if not contains '/', assumes this specifies only the filename and writes to working directory
         if not set, writes to default filename in working directory
-    -f PACS flux offset (number)
+    -f PACS 160um flux offset (number)
         either integer or float, shouldn't be more than 6 digits
         the PACS image with this offset must already exist (and be named properly)
         this script will do the formatting (0 padding, etc)
         default -f 0 (uses the unmodified PACS160um image)
+    -7 PACS 70um flux offset (number)
+        Same rules as above for the 160 um.
+        Also signals that the 70um band should be included.
     -G grid sample
         See manticore documentation
     -R random sample (integer number)
@@ -83,7 +87,7 @@ re_int='^[0-9]+$'
 hflag=""
 
 # parse arguments
-while getopts 'hxn:H:C:T:d:2l:s:t:o:f:GR:S' flag ; do
+while getopts 'hxn:H:C:T:d:2l:s:t:o:f:7:GR:S' flag ; do
     case "${flag}" in
         h) hflag="${hflag}h" ;;
         x) : ;;
@@ -102,6 +106,7 @@ while getopts 'hxn:H:C:T:d:2l:s:t:o:f:GR:S' flag ; do
         t) n_cores="${OPTARG}" ;;
         o) out="${OPTARG}" ;;
         f) flux_mod="${OPTARG}" ;;
+        7) pacs70_flux_mod="${OPTARG}" ;;
         G) GRSflag="G${GRSflag}" ;;
         R) GRSflag="${GRSflag}R ${OPTARG}"
             if [[ ! $OPTARG =~ $re_int ]] ; then
@@ -168,7 +173,7 @@ else
     Thstub=""
 fi
 
-# Format flux offset as present in PACS image filename
+# Format flux offset as present in PACS 160um image filename
 # RE are defined above the argument parsing case statement
 if [[  $flux_mod =~ $re_zero ]] ; then
     flux_mod=""
@@ -177,8 +182,21 @@ elif [[ $flux_mod =~ $re_float ]] ; then
 elif [[ $flux_mod =~ $re_int ]] ; then
     flux_mod="-$(printf "plus%06d"  $flux_mod)"
 else
-    printf "Invalid PACS flux offset: %s (-h for instructions)\n" $flux_mod
+    printf "Invalid PACS 160um flux offset: %s (-h for instructions)\n" $flux_mod
     exit 1
+fi
+# Repeat above for PACS 70um if it exists
+if [[ ! -z $pacs70_flux_mod ]] ; then
+    if [[  $pacs70_flux_mod =~ $re_zero ]] ; then
+        pacs70_flux_mod=""
+    elif [[ $pacs70_flux_mod =~ $re_float ]] ; then
+        pacs70_flux_mod="-$(printf "plus%06.1f"  $pacs70_flux_mod)"
+    elif [[ $pacs70_flux_mod =~ $re_int ]] ; then
+        pacs70_flux_mod="-$(printf "plus%06d"  $pacs70_flux_mod)"
+    else
+        printf "Invalid PACS 70um flux offset: %s (-h for instructions)\n" $pacs70_flux_mod
+        exit 1
+    fi
 fi
 
 # Parse log argument
@@ -232,15 +250,21 @@ dust=$(echo $dust | sed 's/-/:/g')
 img="image${rccstub}"
 err="error${rccstub}"
 
-b1="${working_dir}PACS160um-"
-b2="${working_dir}SPIRE250um-"
-b3="${working_dir}SPIRE350um-"
-b4="${working_dir}SPIRE500um-"
-flux_args="${b1}${img}${flux_mod}${fitsstub} ${b2}${img}${fitsstub} ${b3}${img}${fitsstub} ${b4}${img}${fitsstub}"
-err_args="${b1}${err}${fitsstub}" # need to prefix with "-e "
-for b in $b2 $b3 $b4 ; do
+b160="${working_dir}PACS160um-"
+b250="${working_dir}SPIRE250um-"
+b350="${working_dir}SPIRE350um-"
+b500="${working_dir}SPIRE500um-"
+flux_args="${b160}${img}${flux_mod}${fitsstub} ${b250}${img}${fitsstub} ${b350}${img}${fitsstub} ${b500}${img}${fitsstub}"
+err_args="${b160}${err}${fitsstub}" # need to prefix with "-e "
+for b in $b250 $b350 $b500 ; do
   err_args="${err_args} -e ${b}${err}${fitsstub}"
 done
+# Add PACS 70um if it exists
+if [[ ! -z $pacs70_flux_mod ]] ; then
+    b70="${working_dir}PACS70um-"
+    flux_args="${b70}${img}${pacs70_flux_mod}${fitsstub} ${flux_args}"
+    err_args="${b70}${err}${fitsstub} -e ${err_args}"
+fi
 
 if [[ "$n_param" == "3" ]] ; then
   call_command="${manticore} -3 -T ${T_hot} ${single}  -c 0.0 -g 100,100"
