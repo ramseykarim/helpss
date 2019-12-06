@@ -14,7 +14,7 @@ class GNILCModel:
     band_dictionary_template = {'F545': None, 'F857': None}
 
     def __init__(self, *target_args, target_bandpass='PACS160um', extension=0,
-        pixel_scale_arcsec=75):
+        pixel_scale_arcsec=75, mask_constraint=(0.9, 1.1)):
         """
         Object representing the GNILC dust model and packaging its capability
         to predict flux in various instrument bands.
@@ -41,6 +41,10 @@ class GNILCModel:
             75 arcseconds, the Planck HFI pixel scale, and should be used
             at that value. But, it can be increased to something like 300
             for a faster test/debug run.
+        :param mask_constraint: the (low, high) limits on the required
+            fractional agreement between the predicted and observed
+            HFI fluxes. These constraints are used to make masks for the
+            offset derivation.
         """
         if len(target_args) == 1 and type(target_args[0]) == str:
             # String file path
@@ -65,6 +69,7 @@ class GNILCModel:
         self.masks = GNILCModel.band_dictionary_template.copy()
         self.predicted_target_flux = None
         self.mask = None
+        self.mask_constraint = mask_constraint
         self.difference = None
         self.stats = {
             # If value is string or Exception, indicates/describes error
@@ -132,6 +137,7 @@ class GNILCModel:
         it should also predict the target (probably PACS 160 micron) flux
         fairly well.
         :param planck_band_stub: HFI band stub
+        :param mask_constraint: (low, high) limits for mask creation
         """
         planck_map_fn = cfg.PlanckConfig.light_map_filename(planck_band_stub)
         observed_planck_flux = self.projector.project(rgu.open_healpix(planck_map_fn))
@@ -140,7 +146,8 @@ class GNILCModel:
         predicted_planck_flux = self.predict_flux_in_band(planck_band_stub)
         ratio = (observed_planck_flux / predicted_planck_flux)
         # Constrain ratio to be within 10% (and not Nan)
-        self.masks[planck_band_stub] = ~np.isnan(ratio) & (ratio > 0.9) & (ratio < 1.1)
+        lo, hi = self.mask_constraint
+        self.masks[planck_band_stub] = ~np.isnan(ratio) & (ratio > lo) & (ratio < hi)
 
     def accumulate_masks(self):
         """

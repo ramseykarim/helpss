@@ -79,9 +79,17 @@ herschel_bandpass_directory = "/n/sgraraid/filaments/data/filterInfo_PlanckHersc
 # Bandpass stubs for each telescope (Planck HFI, Herschel PACS/SPIRE)
 # These are the only filters this code supports
 hfi_bandpass_stubs = ("F100", "F143", "F217", "F353", "F545", "F857")
-herschel_bandpass_stubs = ("PACS160um", "SPIRE250um", "SPIRE350um", "SPIRE500um")
+herschel_bandpass_stubs = ("PACS70um", "PACS100um", "PACS160um", "SPIRE250um", "SPIRE350um", "SPIRE500um")
 # Herschel_beam_sizes in arcseconds
-herschel_beam_sizes = (11.8, 18.2, 24.9, 36.3)
+# NOTE (Dec 5, 2019) these are ever so slightly off from what T. Huard uses in
+# ConvolveHerschelImages.pro
+# PACS: depends on scan speed, but usually the geometric mean of maj/min FWHMs
+# SPIRE: (18.1, 24.9, 36.4)
+# NEED TO ADDRESS THESE BEAM SIZE DIFFERENCES; I "guessed" on 70 and 100
+# PACS Beam sizes are available in Table 3.1 OF PACS Observer's Manual (Version 2.5.1; 09-July-2013)
+# SPIRE Beam sizes are available:
+# BETWEEN FIGURE 5.8 AND TABLE 5.3 IN SPIRE HANDBOOK (Version 2.5; March 24, 2014), CONCERNING BEAM SIZES ON MAPS WITH (6,10,14)" PIXELS IN (250,350,500)um SPIRE IMAGES
+herschel_beam_sizes = (5.9, 7.0, 11.8, 18.2, 24.9, 36.3)
 # HFI beam sizes in arcminutes
 hfi_beam_sizes = (9.66, 7.27, 5.01, 4.86, 4.84, 4.63,)
 # GNILC effective resolution in arcminutes
@@ -97,7 +105,7 @@ hfi_maps = (
 # Unit conversions for HFI bands (some reference CMB)
 hfi_unit_conversions = (244.1, 371.74, 483.690, 287.450, 1, 1)
 # Bandpass centers for Herschel (wavelength, Angstroms)
-herschel_bandpass_centers = (1539451.3, 2471245.1, 3467180.4, 4961067.7)
+herschel_bandpass_centers = (689247.4, 979036.1, 1539451.3, 2471245.1, 3467180.4, 4961067.7)
 # GNILC component names
 gnilc_components = ('Temperature', 'Spectral-Index', 'Opacity')
 

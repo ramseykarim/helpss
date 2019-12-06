@@ -53,7 +53,6 @@ print_usage_exit() {
     -o output directory to which to write the processed FITS files
         the directory MUST already exist
         default -o <current directory> ($(pwd)/)
-    Note: try to avoid relative paths. This script will cd into the working directory.
 "
     exit 1
 }
