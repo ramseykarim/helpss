@@ -6,7 +6,7 @@
 this_script_name="manticore.sh"
 
 # Defaults
-manticore_version="1.5"
+manticore_version="1.5.1"
 manticore="/sgraraid/filaments/manticore-${manticore_version}/manticore"
 flux_mod="0"
 beta_h="1.80"
