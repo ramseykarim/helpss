@@ -1,5 +1,5 @@
 __pycache__/*
-*/__pycache__/*
+*.pyc
 MantiPython/computer_config.py
 MantiPython/quickrun.py
 *.pkl
