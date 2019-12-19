@@ -7,16 +7,16 @@ from scipy.optimize import curve_fit
 import sys
 
 bandpass_beam_sizes = {
-    "PACS160um": np.sqrt(11.64 * 15.65)/60,
-    "SPIRE250um": 18.4/60,
-    "SPIRE350um": 25.2/60,
-    "SPIRE500um": 36.7/60,
-    "F100": 9.66,
-    "F143": 7.27,
-    "F217": 5.01,
-    "F353": 4.86,
-    "F545": 4.84,
-    "F857": 4.63,
+	"PACS160um": np.sqrt(11.64 * 15.65)/60,
+	"SPIRE250um": 18.4/60,
+	"SPIRE350um": 25.2/60,
+	"SPIRE500um": 36.7/60,
+	"F100": 9.66,
+	"F143": 7.27,
+	"F217": 5.01,
+	"F353": 4.86,
+	"F545": 4.84,
+	"F857": 4.63,
 }
 
 
@@ -41,8 +41,8 @@ def prepare_convolution(w, beam_small, beam_large, data_shape):
 	# Given a WCS object, two beam FWHMs in arcminutes (beam_small < beam_large), and image shape
 	#  returns the Gaussian needed to bring an image at beam_small resolution down to beam_large resolution
 	# Find pixel scale, in arcminutes
-    dtheta_dpix_i = w.array_index_to_world(0, 0).separation(w.array_index_to_world(0, 1)).to('arcmin').to_value()
-    dtheta_dpix_j = w.array_index_to_world(0, 0).separation(w.array_index_to_world(1, 0)).to('arcmin').to_value()
+	dtheta_dpix_i = w.array_index_to_world(0, 0).separation(w.array_index_to_world(0, 1)).to('arcmin').to_value()
+	dtheta_dpix_j = w.array_index_to_world(0, 0).separation(w.array_index_to_world(1, 0)).to('arcmin').to_value()
 	dtheta_dpix_avg = (dtheta_dpix_i + dtheta_dpix_j)/2  # arcminutes
 	# Using pixel scale, generate a grid for the Gaussian
 	i, j = np.arange(data_shape[0]) - data_shape[0]//2, np.arange(data_shape[1]) - data_shape[1]//2
@@ -161,7 +161,7 @@ if __name__ == "__main__":
 	histxy, stats = gen_hist_and_stats(img2-img1, x_lim=(35, 55))
 	# FIXME this is giving a bad peak value but is not well fit by a Gaussian
 	# should be fit at FWHM and above by a Gaussian!
-	
+
 	popt, pcov = fit_gaussian(histxy[0], histxy[1]-np.max(histxy[1])/2)
 
 	plt.figure(figsize=(11, 8.5))

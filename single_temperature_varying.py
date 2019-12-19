@@ -7,6 +7,8 @@ import compare_images as cimg
 from math import ceil
 from scipy.signal import convolve2d
 import sys
+import datetime
+
 
 
 per1_dir = "/n/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/" # jup
@@ -298,7 +300,8 @@ def paint(paint_mask, valid_mask, source_image, kernel, method='scipy'):
 
 if __name__ == "__main__":
     plot_kwargs = dict(origin='lower', vmin=14, vmax=18)
-    with fitsopen(soln_2p_5pcterr) as hdul:
+    fn_old = "./pipeline/full-1.5.1-Per1-pow-1000-0.1-1.80.fits"
+    with fits.open(fn_old) as hdul:
         T = hdul[1].data
         N = hdul[3].data
         w = WCS(hdul[1].header)
@@ -335,6 +338,20 @@ if __name__ == "__main__":
         print("FINAL SHAPE", final_img.shape)
     print("DONE")
     final_img = prepare_TN_maps(final_img, N, w, conv_sigma_mult=(1./np.sqrt(2)))[0]
+    final_img[final_img == 0] = np.nan
     plt.figure(figsize=(14, 9))
     plt.imshow(final_img, **plot_kwargs)
+    # save the image in a manticore-ready format
+    with fits.open(fn_old) as hdul:
+        Thdu = hdul[1]
+        Xshdu = hdul[5]
+        phdu = hdul[0]
+        phdu.header['DATE'] = (datetime.datetime.now(datetime.timezone.utc).astimezone().isoformat(), "File creation date")
+        phdu.header['CREATOR'] = ("Ramsey: {}".format(str(__file__)), "FITS file creator")
+        phdu.header['HISTORY'] = "Ramsey inpainted this on Dec 18 2019. See github commit for exact details"
+        Thdu.data = final_img
+        Thdu.header['HISTORY'] = "Inpainted"
+        Xshdu.header['HISTORY'] = "not changed, straight from 1-component manticore"
+        hdulnew = fits.HDUList([phdu, Thdu, Xshdu])
+        hdulnew.writeto("pipeline/single-vary.fits", overwrite=True)
     plt.show()

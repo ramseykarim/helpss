@@ -5,3 +5,4 @@ MantiPython/quickrun.py
 *.pkl
 MantiPython/emcee_imgs/*
 */.idea/*
+*.fits
