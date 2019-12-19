@@ -2,8 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # import pipeline functions (written by Ramsey)
-from . import calc_offset
-from . import modify_fits
+from .. import calc_offset
+from .. import modify_fits
 
 
 # Let's say you've got all your data in this directory

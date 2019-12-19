@@ -1,11 +1,13 @@
+#!/usr/bin/env python
 import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
-import utils_regrid as rgu
-import path_config as cfg
-import calc_offset as cpo
 import matplotlib.pyplot as plt
-from modify_fits import add_offset, add_systematic_error
+
+from .. import path_config as cfg
+from .. import utils_regrid as rgu
+from .. import calc_offset as cpo
+from ..modify_fits import add_offset, add_systematic_error
 
 
 """
@@ -79,6 +81,4 @@ def test_add_flux_mod_error():
     for b in [250, 350, 500]:
         add_systematic_error(0.015, spire_err(b), spire_fn(b))
 
-if __name__ == "__main__":
-    test_add_flux_mod_error()
-    # test_predict()
+print(f"hello from {__name__}")

@@ -112,9 +112,9 @@ def calculate_gnilc_flux(band_center, frequency, weight, temperature, tau, beta)
         n_steps = n_rows // row_step
         n_rows_leftover = n_rows % row_step
         print("CALCULATING FLUX IN BLOCKS")
-        print("ROWS: %d. LEFTOVER: %d. Need %d steps." % (n_rows, n_rows_leftover, n_steps))
-        print("Total size: %d x %d x %d x 64 bits = %s" % (frequency.shape[0], n_rows, n_cols, sizeof_fmt(frequency.shape[0] * n_rows * n_cols * 8)))
-        print("Step size: %d x %d x %d x 64 bits = %s" % (frequency.shape[0], row_step, n_cols, sizeof_fmt(frequency.shape[0] * row_step * n_cols * 8)))
+        print("ROWS: %d. LEFTOVER: %d.\nNeed %d steps." % (n_rows, n_rows_leftover, n_steps))
+        print("Step size: %d x [[%d]] x %d x 64 bits = %s" % (frequency.shape[0], row_step, n_cols, sizeof_fmt(frequency.shape[0] * row_step * n_cols * 8)))
+        print("Total size: %d x [[%d]] x %d x 64 bits = %s" % (frequency.shape[0], n_rows, n_cols, sizeof_fmt(frequency.shape[0] * n_rows * n_cols * 8)))
         result = np.zeros((n_rows, n_cols))
         for i in range(n_steps):
             n_start, n_end = i * row_step, (i + 1) * row_step
@@ -122,9 +122,9 @@ def calculate_gnilc_flux(band_center, frequency, weight, temperature, tau, beta)
                                                    frequency, weight,
                                                    normalization,
                                                    temperature, tau, beta)
-            print("-> array[0:%d, %d:%d, 0:%d]\r" % (frequency.shape[0], n_start, n_end, n_cols), end="")
+            print("-> array[0:%d, [[%d:%d]], 0:%d]\r" % (frequency.shape[0], n_start, n_end, n_cols), end="")
         n_start, n_end = n_steps * row_step, n_steps * row_step + n_rows_leftover
-        print("-> array[0:%d, %d:%d, 0:%d]" % (frequency.shape[0], n_start, n_end, n_cols))
+        print("-> array[0:%d, [[%d:%d]], 0:%d]" % (frequency.shape[0], n_start, n_end, n_cols))
         result[n_start:n_end, :] = flux_helper(n_start, n_end,
                                                frequency, weight,
                                                normalization,
