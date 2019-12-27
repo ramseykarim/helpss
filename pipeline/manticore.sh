@@ -142,7 +142,7 @@ parse_dust() {
     else
         # assume it is a decimal, like "1.80"
         # manticore should complain if invalid.
-        echo "pow-1000-0.1-${1}"
+        echo "pow-750-0.05625-${1}"
     fi
 }
 
