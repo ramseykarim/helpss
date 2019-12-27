@@ -299,8 +299,8 @@ def paint(paint_mask, valid_mask, source_image, kernel, method='scipy'):
 
 
 if __name__ == "__main__":
-    plot_kwargs = dict(origin='lower', vmin=14, vmax=18)
-    fn_old = "./pipeline/full-1.5.1-Per1-pow-1000-0.1-1.80.fits"
+    plot_kwargs = dict(origin='lower', vmin=12, vmax=16)
+    fn_old = "./pipeline/full-1.5.1-Per1-pow-1000-0.1-2.10.fits"
     with fits.open(fn_old) as hdul:
         T = hdul[1].data
         N = hdul[3].data
@@ -337,7 +337,7 @@ if __name__ == "__main__":
         final_img = final_img[(conv_kernel.shape[0]//2):(-conv_kernel.shape[0]//2 + 1), (conv_kernel.shape[1]//2):(-conv_kernel.shape[1]//2 + 1)]
         print("FINAL SHAPE", final_img.shape)
     print("DONE")
-    final_img = prepare_TN_maps(final_img, N, w, conv_sigma_mult=(1./np.sqrt(2)))[0]
+    # final_img = prepare_TN_maps(final_img, N, w, conv_sigma_mult=(1./np.sqrt(2)))[0]
     final_img[final_img == 0] = np.nan
     plt.figure(figsize=(14, 9))
     plt.imshow(final_img, **plot_kwargs)
@@ -353,5 +353,5 @@ if __name__ == "__main__":
         Thdu.header['HISTORY'] = "Inpainted"
         Xshdu.header['HISTORY'] = "not changed, straight from 1-component manticore"
         hdulnew = fits.HDUList([phdu, Thdu, Xshdu])
-        hdulnew.writeto("pipeline/single-vary.fits", overwrite=True)
+        hdulnew.writeto("pipeline/single-2.10-vary.fits", overwrite=True)
     plt.show()
