@@ -5,9 +5,9 @@ from astropy.wcs import WCS
 from scipy.interpolate import UnivariateSpline
 from scipy.optimize import curve_fit
 
-from .utils import utils_regrid as rgu
-from .utils import path_config as cfg
-from .utils import utils_planck as plu
+from .utils import regrid as rgu
+from . import path_config as cfg
+from .utils import planck as plu
 
 
 class GNILCModel:
