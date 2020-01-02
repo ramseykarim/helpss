@@ -217,7 +217,7 @@ def prepare_TN_maps(T, N, w, conv_sigma_mult=None, n_sigma=3, sigma_mult=1, meth
     conv_beam = prepare_convolution(w, new_beam*sigma_mult, n_sigma=n_sigma, data_shape=T.shape, method=method)
     return T, N, conv_beam
 
-def inpaint_mask(T, N):
+def inpaint_mask(T, N, Ncutoff=1.5e21):
     """
     T is temperature map, N is column density map
     T, N are already convolved up a little bit
@@ -226,7 +226,7 @@ def inpaint_mask(T, N):
     validmask is true where data is valid (not nan)
     """
     nanmask = np.isnan(T) & np.isnan(N)
-    mask_N = (N > 1.5e21) # this is what we want to inpaint
+    mask_N = (N > Ncutoff) # this is what we want to inpaint
     return mask_N, ~nanmask
 
 
@@ -300,7 +300,7 @@ def paint(paint_mask, valid_mask, source_image, kernel, method='scipy'):
 
 if __name__ == "__main__":
     plot_kwargs = dict(origin='lower', vmin=12, vmax=16)
-    fn_old = "./pipeline/full-1.5.1-Per1-pow-750-0.05625-2.10.fits"
+    fn_old = "./pipeline/full-1.5.1-Per1-DL3.fits"
     with fits.open(fn_old) as hdul:
         T = hdul[1].data
         N = hdul[3].data
@@ -314,7 +314,7 @@ if __name__ == "__main__":
         T = np.pad(T, tuple([x//2]*2 for x in conv_kernel.shape), mode='constant', constant_values=np.nan)
         N = np.pad(N, tuple([x//2]*2 for x in conv_kernel.shape), mode='constant', constant_values=np.nan)
     plot_it = True
-    ipmask, validmask = inpaint_mask(T, N)
+    ipmask, validmask = inpaint_mask(T, N, Ncutoff=8e21)
     source_mask = validmask & ~ipmask
     has_borders = boolean_edges(source_mask, validmask, valid_borders=True)
     ipmask[np.where(~has_borders)] = False
@@ -348,10 +348,10 @@ if __name__ == "__main__":
         phdu = hdul[0]
         phdu.header['DATE'] = (datetime.datetime.now(datetime.timezone.utc).astimezone().isoformat(), "File creation date")
         phdu.header['CREATOR'] = ("Ramsey: {}".format(str(__file__)), "FITS file creator")
-        phdu.header['HISTORY'] = "Ramsey inpainted this on Dec 27 2019. See github commit for exact details"
+        phdu.header['HISTORY'] = "Ramsey inpainted this on Jan 2 2020. See github commit for exact details"
         Thdu.data = final_img
         Thdu.header['HISTORY'] = "Inpainted"
         Xshdu.header['HISTORY'] = "not changed, straight from 1-component manticore"
         hdulnew = fits.HDUList([phdu, Thdu, Xshdu])
-        hdulnew.writeto("pipeline/single-2.10-vary.fits", overwrite=True)
+        hdulnew.writeto("pipeline/single-DL3-vary.fits", overwrite=True)
     plt.show()
