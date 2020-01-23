@@ -28,6 +28,7 @@ mprep_directory=$default_mprep_dir
 object_name=$default_object
 working_dir=$default_working_dir
 pacs70=false
+reference_wavelength="500"
 
 print_usage_exit() {
     printf "${this_script_name} usage: ./${this_script_name} [valid arguments]
@@ -46,13 +47,16 @@ print_usage_exit() {
         see \"-d\" documentation above
     -i IDL preprocessing scripts directory
         this directory must contain MakeHerschelImages.pro, RemapImages.pro, and ConvolveHerschelImages.pro
-        if you are running this on sgra, you may specify this without the '/n' prefix
+        if you are running this on sgra, you may specify this without the '/n' rmpband
         default -i ${default_mprep_dir}
     -n object name to assign in case the name is missing
         default -n ${default_object}
     -o output directory to which to write the processed FITS files
         the directory MUST already exist
         default -o <current directory> ($(pwd)/)
+    -R reference wavelength
+        must be one of: 70, 160, 250, 350, 500
+        must also be one of the available wavelengths for this dataset
 "
     exit 1
 }
@@ -83,7 +87,7 @@ sanitize_directory() {
 }
 
 # parse arguments
-while getopts 'hxd:S:P:i:n:o:7' flag ; do
+while getopts 'hxd:S:P:i:n:o:7R:' flag ; do
     case "${flag}" in
         h) print_usage_exit ;;
         x) : ;;
@@ -99,6 +103,7 @@ while getopts 'hxd:S:P:i:n:o:7' flag ; do
         o) working_dir="$(sanitize_directory ${OPTARG})"
             if [[ $? -eq 1 ]] ; then complain_directory "${working_dir}" ; fi ;;
         7) pacs70=true ;;
+        R) reference_wavelength="${OPTARG}" ;;
         *) print_usage_exit ;;
     esac
 done
@@ -155,22 +160,22 @@ remap_images_import="${idlrun}RemapImages"
 convolve_herschel_images_import="${idlrun}ConvolveHerschelImages"
 
 # MakeHerschelImages setup and call
+# Handle 70um more gracefully
 if [[ "$pacs70" = true ]] ; then
-make_herschel_images_setup="filearr=strarr(5)
-filearr(0)=${p70_source}
-filearr(1)=${p160_source}
-filearr(2)=${s250_source}
-filearr(3)=${s350_source}
-filearr(4)=${s500_source}
+    len_arr="5"
+    # Order shouldn't matter
+    last_lines="filearr(4)=${p70_source}
 "
 else
-make_herschel_images_setup="filearr=strarr(4)
+    len_arr="4"
+    last_lines=""
+fi
+make_herschel_images_setup="filearr=strarr(${len_arr})
 filearr(0)=${p160_source}
 filearr(1)=${s250_source}
 filearr(2)=${s350_source}
 filearr(3)=${s500_source}
-"
-fi
+${last_lines}"
 # Note that this will dump outputs to current working directory
 make_herschel_images_cmd="MakeHerschelImages, filearr, object=\"${object_name}\""
 # Get filenames for these newly created files (standard filenaming scheme)
@@ -188,48 +193,55 @@ fits=".fits\""
 # RemapImages setup and call
 # Reference is SPIRE500 (largest pixels, so least number of pixels)
 # Need to remap other 3 images+errors (6 total files) to the reference
+case "${reference_wavelength}" in
+    350) rmp_reference_band="${s350}"
+        rmpband1=${p160} ; rmpband2=${s250} ; rmpband3=${s500} ;;
+    250) rmp_reference_band="${s250}"
+        rmpband1=${p160} ; rmpband2=${s350} ; rmpband3=${s500} ;;
+    160) rmp_reference_band="${p160}"
+        rmpband1=${p250} ; rmpband2=${s350} ; rmpband3=${s500} ;;
+    # Not allowing referecing to 70um. It doesn't make sense
+    *) rmp_reference_band="${s500}"
+        reference_wavelength="500"
+        rmpband1=${p160} ; rmpband2=${p250} ; rmpband3=${s350} ;;
+esac
+# Handle 70 micron more gracefully
 if [[ "$pacs70" = true ]] ; then
-remap_images_setup="reference=${s500}${img}${fits}
-filearr=strarr(8)
-filearr(0)=${p70}${img}${fits}
-filearr(1)=${p70}${err}${fits}
-filearr(2)=${p160}${img}${fits}
-filearr(3)=${p160}${err}${fits}
-filearr(4)=${s250}${img}${fits}
-filearr(5)=${s250}${err}${fits}
-filearr(6)=${s350}${img}${fits}
-filearr(7)=${s350}${err}${fits}
+    len_arr="8"
+    # Order shouldn't matter
+    last_lines="filearr(6)=${p70}${img}${fits}
+filearr(7)=${p70}${err}${fits}
 "
 else
-remap_images_setup="reference=${s500}${img}${fits}
-filearr=strarr(6)
-filearr(0)=${p160}${img}${fits}
-filearr(1)=${p160}${err}${fits}
-filearr(2)=${s250}${img}${fits}
-filearr(3)=${s250}${err}${fits}
-filearr(4)=${s350}${img}${fits}
-filearr(5)=${s350}${err}${fits}
-"
+    len_arr="6"
+    last_lines=""
 fi
+remap_images_setup="reference=${rmp_reference_band}${img}${fits}
+filearr=strarr(${len_arr})
+filearr(0)=${rmpband1}${img}${fits}
+filearr(1)=${rmpband1}${err}${fits}
+filearr(2)=${rmpband2}${img}${fits}
+filearr(3)=${rmpband2}${err}${fits}
+filearr(4)=${rmpband3}${img}${fits}
+filearr(5)=${rmpband3}${err}${fits}
+${last_lines}"
 remap_images_cmd="RemapImages, reference, filearr"
 
 
 # ConvolveHerschelImages setup and call
 # Convolving to reference wavelength of 500um (worst resolution)
-rmp="-remapped"
+# Handle 70um more gracefully
 if [[ "$pacs70" = true ]] ; then
-convolve_herschel_images_setup="wavearr=[70, 160, 250, 350, 500]
-imarr=[${p70}\", ${p160}\", ${s250}\", ${s350}\", ${s500}\"]+\"${img}${rmp}${fits}
-errarr=[${p70}\", ${p160}\", ${s250}\", ${s350}\", ${s500}\"]+\"${err}${rmp}${fits}
-refwave=500
-"
-else
-convolve_herschel_images_setup="wavearr=[160, 250, 350, 500]
-imarr=[${p160}\", ${s250}\", ${s350}\", ${s500}\"]+\"${img}${rmp}${fits}
-errarr=[${p160}\", ${s250}\", ${s350}\", ${s500}\"]+\"${err}${rmp}${fits}
-refwave=500
-"
+    within_wavearr="70, "
+    within_otherarr="${p70}\", "
 fi
+# within_* will be "" if else, by default
+rmp="-remapped"
+convolve_herschel_images_setup="wavearr=[${within_wavearr}160, 250, 350, 500]
+imarr=[${within_otherarr}${p160}\", ${s250}\", ${s350}\", ${s500}\"]+\"${img}${rmp}${fits}
+errarr=[${within_otherarr}${p160}\", ${s250}\", ${s350}\", ${s500}\"]+\"${err}${rmp}${fits}
+refwave=${reference_wavelength}
+"
 convolve_herschel_images_cmd="ConvolveHerschelImages, wavearr, imarr, errarr, refwave=refwave"
 
 # Change directory to working directory so all file reads/writes are in there

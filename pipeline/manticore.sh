@@ -6,7 +6,7 @@
 this_script_name="manticore.sh"
 
 # Defaults
-manticore_version="1.5.1"
+manticore_version="1.5.2"
 manticore="/sgraraid/filaments/manticore-${manticore_version}/manticore"
 flux_mod="0"
 beta_h="1.80"
@@ -17,6 +17,7 @@ n_param="3"
 n_cores="5"
 region="unassigned_name"
 pacs70_flux_mod=""
+Nh2Min=""
 
 # Check that manticore executable exists
 if [[ ! -e $manticore ]] ; then
@@ -75,6 +76,8 @@ print_usage_exit() {
         See manticore documentation
     -S systematic uncertainty sample
         See manticore documentation
+    -N Nh2Min in cm^-2
+        See manticore documentation
 "
     exit 0
 }
@@ -87,7 +90,7 @@ re_int='^[0-9]+$'
 hflag=""
 
 # parse arguments
-while getopts 'hxn:H:C:T:d:2l:s:t:o:f:7:GR:S' flag ; do
+while getopts 'hxn:H:C:T:d:2l:s:t:o:f:7:GR:SN:' flag ; do
     case "${flag}" in
         h) hflag="${hflag}h" ;;
         x) : ;;
@@ -114,6 +117,7 @@ while getopts 'hxn:H:C:T:d:2l:s:t:o:f:7:GR:S' flag ; do
                 exit 1
             fi ;;
         S) GRSflag="S${GRSflag}" ;;
+        N) Nh2Min="${OPTARG}" ;;
         *) print_usage_exit ;;
     esac
 done
@@ -204,7 +208,8 @@ log=$(parse_filename $log mant_log.log)
 # Parse single component argument
 if [[ ! -z $single ]] ; then single=" -s $(parse_filename $single SINGLECANNOTBEDIRECTORY.ERROR)" ; fi
 # Parse output argument
-out=$(parse_filename $out full-${manticore_version}-${region}-${dust}${Thstub}.fits)
+# Note: Removed Thstub suffix 1/13/2020
+out=$(parse_filename $out full-${manticore_version}-${region}-${dust}.fits)
 
 
 # Print out a buch of status text
@@ -270,9 +275,17 @@ if [[ "$n_param" == "3" ]] ; then
   call_command="${manticore} -3 -T ${T_hot} ${single}  -c 0.0 -g 100,100"
 else
   call_command="${manticore} -${n_param} -g 100"
+  Nh2Min=""
 fi
 if [[ ! -z $GRSflag ]] ; then GRSflag="-${GRSflag}" ; fi
-call_command="${call_command} -v -a -t ${n_cores} -D ${dust} -l ${log} -o ${out} ${GRSflag} -e ${err_args} ${flux_args}"
+# Note: Added the -N Nh2Min flag 1/13/2020. Deciding between 2e21 and 4e21
+if [[ ! -z $Nh2Min ]] ; then Nh2Min="-N ${Nh2Min}" ; fi
+call_command="${call_command} -v -a -t ${n_cores} -D ${dust} -l ${log} -o ${out} ${GRSflag} ${Nh2Min} -e ${err_args} ${flux_args}"
+
+echo "" >> $log
+echo "manticore called as:" >> $log
+echo "${call_command}" >> $log
+echo "" >> $log
 
 echo "*****************************"
 echo "CALLING MANTICORE AS:"

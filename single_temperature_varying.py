@@ -300,7 +300,7 @@ def paint(paint_mask, valid_mask, source_image, kernel, method='scipy'):
 
 if __name__ == "__main__":
     plot_kwargs = dict(origin='lower', vmin=12, vmax=16)
-    fn_old = "./pipeline/full-1.5.1-Per1-DL3.fits"
+    fn_old = "/n/sgraraid/filaments/Perseus/Herschel/results/full-1.5.1-Per1-DL3.fits"
     with fits.open(fn_old) as hdul:
         T = hdul[1].data
         N = hdul[3].data
@@ -308,13 +308,15 @@ if __name__ == "__main__":
     Torig, Norig = T.copy(), N.copy()
     method = 'manual'
     # Don't convolve images yet; set up ~2-3x beam inpaint kernel
-    T, N, conv_kernel = prepare_TN_maps(Torig, Norig, w, n_sigma=3, conv_sigma_mult='noconv', sigma_mult=5, method=method)
+    sigma_mult = 5 # INPAINT KERNEL in Herschel-beams
+    T, N, conv_kernel = prepare_TN_maps(Torig, Norig, w, n_sigma=3, conv_sigma_mult='noconv', sigma_mult=sigma_mult, method=method)
     if method == 'scipy' or method == 'manual':
         print("KERNEL SHAPE", conv_kernel.shape)
         T = np.pad(T, tuple([x//2]*2 for x in conv_kernel.shape), mode='constant', constant_values=np.nan)
         N = np.pad(N, tuple([x//2]*2 for x in conv_kernel.shape), mode='constant', constant_values=np.nan)
     plot_it = True
-    ipmask, validmask = inpaint_mask(T, N, Ncutoff=8e21)
+    Ncutoff = 7e21
+    ipmask, validmask = inpaint_mask(T, N, Ncutoff=Ncutoff)
     source_mask = validmask & ~ipmask
     has_borders = boolean_edges(source_mask, validmask, valid_borders=True)
     ipmask[np.where(~has_borders)] = False
@@ -329,7 +331,9 @@ if __name__ == "__main__":
     # axes[2].imshow(ipmask, origin='lower')
     final_img = T
     final_img[np.where(ipmask | ~validmask)] = 0.
-    plt.figure(figsize=(14, 9))
+    fig = plt.figure(figsize=(18, 9))
+    fig.canvas.set_window_title("Ncutoff={:4.0E}, kernelwidth={:d}".format(Ncutoff, sigma_mult))
+    plt.subplot(121)
     plt.imshow(final_img, **plot_kwargs)
     final_img = paint(ipmask, validmask, final_img, conv_kernel, method=method)
     if method == 'scipy' or method == 'manual':
@@ -339,8 +343,9 @@ if __name__ == "__main__":
     print("DONE")
     final_img = prepare_TN_maps(final_img, N, w, conv_sigma_mult=(1./np.sqrt(2)))[0]
     final_img[final_img == 0] = np.nan
-    plt.figure(figsize=(14, 9))
+    plt.subplot(122)
     plt.imshow(final_img, **plot_kwargs)
+    plt.colorbar()
     # save the image in a manticore-ready format
     with fits.open(fn_old) as hdul:
         Thdu = hdul[1]
@@ -348,10 +353,11 @@ if __name__ == "__main__":
         phdu = hdul[0]
         phdu.header['DATE'] = (datetime.datetime.now(datetime.timezone.utc).astimezone().isoformat(), "File creation date")
         phdu.header['CREATOR'] = ("Ramsey: {}".format(str(__file__)), "FITS file creator")
-        phdu.header['HISTORY'] = "Ramsey inpainted this on Jan 2 2020. See github commit for exact details"
+        phdu.header['HISTORY'] = "Ramsey inpainted this on Jan 13 2020."
+        phdu.header['HISTORY'] = "Cutoff: N={:4.0E}. Value from talks with LGM.".format(Ncutoff)
         Thdu.data = final_img
         Thdu.header['HISTORY'] = "Inpainted"
         Xshdu.header['HISTORY'] = "not changed, straight from 1-component manticore"
         hdulnew = fits.HDUList([phdu, Thdu, Xshdu])
-        hdulnew.writeto("pipeline/single-DL3-vary.fits", overwrite=True)
+        hdulnew.writeto("/n/sgraraid/filaments/Perseus/Herschel/results/single-DL3-vary.fits", overwrite=True)
     plt.show()
