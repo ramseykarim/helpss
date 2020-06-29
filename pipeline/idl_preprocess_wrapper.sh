@@ -54,9 +54,12 @@ print_usage_exit() {
     -o output directory to which to write the processed FITS files
         the directory MUST already exist
         default -o <current directory> ($(pwd)/)
+    -7 include 70 micron data
     -R reference wavelength
         must be one of: 70, 160, 250, 350, 500
+        (70 micron will not be accepted though, reverts to 500)
         must also be one of the available wavelengths for this dataset
+        reverts to 500 if not recognized
 "
     exit 1
 }
@@ -194,16 +197,16 @@ fits=".fits\""
 # Reference is SPIRE500 (largest pixels, so least number of pixels)
 # Need to remap other 3 images+errors (6 total files) to the reference
 case "${reference_wavelength}" in
-    350) rmp_reference_band="${s350}"
+    350) rmp_reference_band="${s350}" ;
         rmpband1=${p160} ; rmpband2=${s250} ; rmpband3=${s500} ;;
-    250) rmp_reference_band="${s250}"
+    250) rmp_reference_band="${s250}" ;
         rmpband1=${p160} ; rmpband2=${s350} ; rmpband3=${s500} ;;
-    160) rmp_reference_band="${p160}"
-        rmpband1=${p250} ; rmpband2=${s350} ; rmpband3=${s500} ;;
+    160) rmp_reference_band="${p160}" ;
+        rmpband1=${s250} ; rmpband2=${s350} ; rmpband3=${s500} ;;
     # Not allowing referecing to 70um. It doesn't make sense
-    *) rmp_reference_band="${s500}"
-        reference_wavelength="500"
-        rmpband1=${p160} ; rmpband2=${p250} ; rmpband3=${s350} ;;
+    *) rmp_reference_band="${s500}" ;
+        reference_wavelength="500" ;
+        rmpband1=${p160} ; rmpband2=${s250} ; rmpband3=${s350} ;;
 esac
 # Handle 70 micron more gracefully
 if [[ "$pacs70" = true ]] ; then
