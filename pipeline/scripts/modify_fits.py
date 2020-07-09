@@ -1,3 +1,4 @@
+import os
 from astropy.io import fits
 
 
@@ -142,18 +143,17 @@ def process_savename(savename, original_filename, append_string):
         filename_first, fits_stub = original_filename[:-5], original_filename[-5:]
         assert fits_stub == ".fits"
         savename = f"{filename_first}-plus{append_string}{fits_stub}"
-    elif savename[-1] == '/':
+    elif os.path.isdir(savename):
         # Default filename, but saved to savename directory
         # Isolate original filename without path
         filename_without_path = original_filename.split('/')[-1]
         # Get name before ".fits" and insert append_string there
         filename_first, fits_stub = filename_without_path[:-5], filename_without_path[-5:]
         assert fits_stub == ".fits"
+        # Put a slash in the savename directory if it's not there
+        if not savename[-1] == '/':
+            savename = savename + '/'
         # Rebuild full filename with savename as path
         savename = f"{savename}{filename_first}-plus{append_string}{fits_stub}"
     # In any other case, savename will be assumed to be the full desired name+path
     return savename
-
-
-
-
