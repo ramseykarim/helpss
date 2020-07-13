@@ -2,7 +2,7 @@ import os
 from astropy.io import fits
 
 
-def add_offset(offset, filename, extension=0, savename=None):
+def add_offset(offset, filename, extension=0, savename=None, test=False):
     """
     Add a fixed offset to a FITS image. Will only save a single extension.
     Does not overwrite the original (unless savename==filename)
@@ -15,12 +15,16 @@ def add_offset(offset, filename, extension=0, savename=None):
         Will overwrite anything already saved as savename
         If savename ends in '/', it is assumed to specify a directory,
         not a filename.
+    :param test: do NOT edit a file. Immediately return the proposed savename
     :return: full name and path of newly saved file
     """
     # Make tidy offset string based on float vs int
     offset_str = "{:06d}".format(offset) if type(offset) == int else "{:06.1f}".format(offset)
     # Add "-plus######.fits" for a default
     savename = process_savename(savename, filename, offset_str)
+    if test:
+        print(f"--- would have written {savename}, but this is a TEST ---")
+        return savename
     with fits.open(filename) as hdul:
         data = hdul[extension].data
         head = hdul[extension].header
