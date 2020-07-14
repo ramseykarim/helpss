@@ -29,7 +29,7 @@ def get_data_path():
         do any I/O)
     """
     parser = argparse.ArgumentParser(description="Command line tool to zero-point calibrate the PACS data and add systematic uncertainties the error maps.")
-    parser.add_argument('directory', type=str, nargs='?', default='processed', help="directory containing the Herschel PACS/SPIRE data (default: ./processed).")
+    parser.add_argument('directory', type=str, nargs='?', default='./', help="directory containing the Herschel PACS/SPIRE data (default: <current directory> ).")
     parser.add_argument('--test', action='store_true', help="print out the actions that would be taken, but do not execute any of them. No I/O at all.")
     args = parser.parse_args()
     data_path = args.directory
