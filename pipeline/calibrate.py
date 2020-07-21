@@ -20,6 +20,9 @@ import argparse
 from scripts import calc_offset, modify_fits
 # calc_offset, modify_fits = None, None
 
+bands = {70: "PACS70um", 160: "PACS160um"}
+uncertainties = {"PACS70um": 6., "PACS160um": 8., "SPIRE250um": 5.5, "SPIRE350um": 5.5, "SPIRE500um": 5.5}
+
 
 def get_data_path():
     """
@@ -31,6 +34,7 @@ def get_data_path():
     parser = argparse.ArgumentParser(description="Command line tool to zero-point calibrate the PACS data and add systematic uncertainties the error maps.")
     parser.add_argument('directory', type=str, nargs='?', default='./', help="directory containing the Herschel PACS/SPIRE data (default: <current directory> ).")
     parser.add_argument('--test', action='store_true', help="print out the actions that would be taken, but do not execute any of them. No I/O at all.")
+    parser.add_argument('--band', type=int, nargs='*', default=[160])
     args = parser.parse_args()
     data_path = args.directory
 
@@ -39,16 +43,14 @@ def get_data_path():
     if not os.path.isdir(data_path):
         raise RuntimeError(f"Invalid directory: {data_path}")
 
-    other_kwargs = {'test': args.test}
+    other_kwargs = {'test': args.test, 'bands': [bands[k] for k in args.band]}
     return data_path, other_kwargs
 
-
-uncertainties = {"PACS70um": 6., "PACS160um": 8., "SPIRE250um": 5.5, "SPIRE350um": 5.5, "SPIRE500um": 5.5}
 
 if __name__ == "__main__":
     data_path, other_kwargs = get_data_path()
     # Can list 70 and 160 here if you wanted
-    band_stubs = ["PACS160um"]
+    band_stubs = other_kwargs['bands']
     modified_flux_files = {}
     for band_stub in band_stubs:
         pacs_flux_filename = f"{data_path}/{band_stub}-image-remapped.fits"
@@ -59,7 +61,7 @@ if __name__ == "__main__":
             print("--- model calculation ---")
             derived_offset = -99.99
         print(f"Working on {pacs_flux_filename}")
-        assigned_offset = int(input("Derived offset is {:.2f}. Assign: ".format(derived_offset)))
+        assigned_offset = int(input(f"Derived {band_stub} offset is {derived_offset:.2f}. Assign: "))
         pacs_flux_filename = f"{data_path}/{band_stub}-image-remapped-conv.fits"
         calibrated_pacs_flux_filename = modify_fits.add_offset(int(round(assigned_offset)), pacs_flux_filename, savename=data_path, test=other_kwargs['test'])
         modified_flux_files[band_stub] = calibrated_pacs_flux_filename
