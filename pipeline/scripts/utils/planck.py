@@ -108,11 +108,21 @@ def calculate_gnilc_flux(band_center, frequency, weight, temperature, tau, beta)
     is_large = cube_size > 512
     if is_large:
         row_step = 128 * MiB // (frequency.size * temperature.shape[2] * 8)
+        row_msg = None
+        if row_step < 5:
+            # Added this on July 28, 2020 in response to a bug
+            # Should cover A) very long waits and B) row_step == 0, which
+            # triggers a ZeroDivisionError when we divide a few lines down
+            row_msg = f"Row step {row_step} requested, but floored at 5."
+            row_step = 5
         n_rows, n_cols = temperature.shape[1], temperature.shape[2]
         n_steps = n_rows // row_step
         n_rows_leftover = n_rows % row_step
         print("CALCULATING FLUX IN BLOCKS")
+        if row_msg is not None:
+            print(f"Extremely large data. {row_msg} Be warned of long calculation time.")
         print("ROWS: %d. LEFTOVER: %d.\nNeed %d steps." % (n_rows, n_rows_leftover, n_steps))
+        print("Shape: Frequency x rows x columns x sizeof(float)")
         print("Step size: %d x [[%d]] x %d x 64 bits = %s" % (frequency.shape[0], row_step, n_cols, sizeof_fmt(frequency.shape[0] * row_step * n_cols * 8)))
         print("Total size: %d x [[%d]] x %d x 64 bits = %s" % (frequency.shape[0], n_rows, n_cols, sizeof_fmt(frequency.shape[0] * n_rows * n_cols * 8)))
         result = np.zeros((n_rows, n_cols))

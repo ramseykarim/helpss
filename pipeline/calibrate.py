@@ -34,7 +34,8 @@ def get_data_path():
     parser = argparse.ArgumentParser(description="Command line tool to zero-point calibrate the PACS data and add systematic uncertainties the error maps.")
     parser.add_argument('directory', type=str, nargs='?', default='./', help="directory containing the Herschel PACS/SPIRE data (default: <current directory> ).")
     parser.add_argument('--test', action='store_true', help="print out the actions that would be taken, but do not execute any of them. No I/O at all.")
-    parser.add_argument('--band', type=int, nargs='*', default=[160])
+    parser.add_argument('--band', type=int, nargs='*', default=[160], help="select the PACS bands to be calibrated. Use integer wavelengths in microns.")
+    parser.add_argument('--assign', action='store_true', help="skip straight to the offset assignment. No calculations or diagnostic figures will be produced.")
     args = parser.parse_args()
     data_path = args.directory
 
@@ -43,29 +44,78 @@ def get_data_path():
     if not os.path.isdir(data_path):
         raise RuntimeError(f"Invalid directory: {data_path}")
 
-    other_kwargs = {'test': args.test, 'bands': [bands[k] for k in args.band]}
+    other_kwargs = {'test': args.test, 'bands': [bands[k] for k in args.band], 'assign': args.assign}
     return data_path, other_kwargs
 
 
+def safe_cast_integer(x):
+    """
+    Check if this is an integer, and if so, return the integer
+    :param x: the thing to check
+    :returns: False if cannot cast to int, or the resulting integer if it can
+    """
+    try:
+        return int(x)
+    except:
+        return False
+
+
+def get_assigned_offset(band_stub, derived_offset):
+    """
+    Manage input loop and return an integer offset from user
+    :param band_stub: the string bandpass name to reference in the prompt
+    :param derived_offset: the float offset derived by the automatic procedure
+    :returns: the int assigned offset. Or, None if the file writing should
+        be skipped.
+    """
+    first_msg = f"Derived {band_stub} offset is {derived_offset:.2f}. Assign: "
+    next_msg = lambda s: f"Having trouble interpreting your response ({s}) as an integer. Enter 'q' to quit. Assign: "
+    quit_commands = ['exit', '', 'q', 'x', 'quit']
+    response = input(first_msg)
+    while (response.lower() not in quit_commands) and (safe_cast_integer(response) is False):
+        # This response is NEITHER a quit command NOR an integer. Try again
+        response = input(next_msg(response))
+    # Passed through the while loop under one of the conditions.
+    # Find out which one
+    if response.lower() in quit_commands:
+        # Return None, indicating that we should not assign anything
+        return None
+    else:
+        # Must be an integer
+        return safe_cast_integer(response)
+
+
 if __name__ == "__main__":
+    STOP = False
     data_path, other_kwargs = get_data_path()
     # Can list 70 and 160 here if you wanted
     band_stubs = other_kwargs['bands']
     modified_flux_files = {}
     for band_stub in band_stubs:
         pacs_flux_filename = f"{data_path}/{band_stub}-image-remapped.fits"
-        if not other_kwargs['test']:
-            model = calc_offset.GNILCModel(pacs_flux_filename, target_bandpass=band_stub)
-            derived_offset = model.get_offset(full_diagnostic=True)
-        else:
+        print(f"Working on {pacs_flux_filename}")
+        if other_kwargs['test']:
             print("--- model calculation ---")
             derived_offset = -99.99
-        print(f"Working on {pacs_flux_filename}")
-        assigned_offset = int(input(f"Derived {band_stub} offset is {derived_offset:.2f}. Assign: "))
+        elif other_kwargs['assign']:
+            print("Skipping to assignment. No calculations will be made.")
+            derived_offset = -99.99
+        else:
+            model = calc_offset.GNILCModel(pacs_flux_filename, target_bandpass=band_stub)
+            derived_offset = model.get_offset(full_diagnostic=True)
+
+        assigned_offset = get_assigned_offset(band_stub, derived_offset)
+        if assigned_offset is None:
+            # Do other bands, if present, but do not write errors
+            STOP = True
+            continue
         pacs_flux_filename = f"{data_path}/{band_stub}-image-remapped-conv.fits"
         calibrated_pacs_flux_filename = modify_fits.add_offset(int(round(assigned_offset)), pacs_flux_filename, savename=data_path, test=other_kwargs['test'])
         modified_flux_files[band_stub] = calibrated_pacs_flux_filename
         print("written")
+
+    if STOP:
+        sys.exit()
 
     for band_stub in uncertainties:
         # Consistency between image-conv and error-conv

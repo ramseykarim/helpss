@@ -198,9 +198,10 @@ class GNILCModel:
         diff_array_flat = self.difference[self.mask].ravel()
         # Check if x_range is None, and if so, calculate appropriate range
         if x_range is None:
-            # Use first and last 16-quantile to define range
+            # Use first and last something-quantile to define range
             sorted_diff = np.sort(diff_array_flat)
             x_range = flquantiles(sorted_diff, 25, presorted=True)
+            self.stats['trimmed_hist_lims'] = x_range
             print("Calculating histogram bins...")
             print("  diffs (min, max): {:.2f}, {:.2f}".format(
                     sorted_diff[0], sorted_diff[-1]))
@@ -326,23 +327,34 @@ class GNILCModel:
         Plot the predicted and observed flux.
         The observed flux is shown at native, not GNILC, resolution.
         """
-        fig = plt.figure("Predicted & Observed Flux", figsize=(14, 7))
+        fig = plt.figure("Predicted and Observed Flux", figsize=(16, 6.5))
         # First plot predicted data
-        ax = plt.subplot(121)
+        ax = plt.subplot(131)
         # Find appropriate color limits
         fq, tq = visual_min_max(self.predicted_target_flux)
         last_plot = plt.imshow(self.predicted_target_flux, origin='lower',
                                vmin=fq, vmax=tq)
         fig.colorbar(last_plot, ax=ax)
         plt.title("GNILC Model Predicted Flux (GNILC resolution)")
-        # Now repeat for observed data
-        ax = plt.subplot(122)
+
+        # Plot the difference image
+        ax = plt.subplot(132)
+        # The color limits will be taken from the histogram trim
+        fq, tq = self.stats['trimmed_hist_lims']
+        last_plot = plt.imshow(self.difference, origin='lower', vmin=fq, vmax=tq)
+        fig.colorbar(last_plot, ax=ax)
+        plt.title("Predicted $-$ Observed Difference Map")
+
+        # Now repeat the first plot for observed data
+        ax = plt.subplot(133)
         fq, tq = visual_min_max(self.target_data)
         last_plot = plt.imshow(self.target_data, origin='lower',
                                vmin=fq, vmax=tq)
         fig.colorbar(last_plot, ax=ax)
         plt.title("Observed {:s} flux (native resolution)".format(
             self.target_bandpass_stub))
+
+        plt.subplots_adjust(top=0.88, bottom=0.11, left=0.05, right=0.975, hspace=0.2, wspace=0.115)
 
     def diagnostic_mask(self):
         """
