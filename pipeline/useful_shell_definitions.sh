@@ -17,26 +17,33 @@ idlproc () {
 }
 
 mkobjdir () {
-    homedir="/sgraraid/filaments/$1/"
+    if [ $(hostnaem -s) == "sgra" ] ; then
+        homedir="/sgraraid/filaments/$1/"
+    else
+        homedir="/n/sgraraid/filaments/$1/"
+    fi
     otherdir="$2"
     shift 2
     if [ ! -d $homedir ] ; then
         mkdir $homedir
     fi
+    if [ $? -ne 0 ] ; then
+        exit 1
+    fi
     pushd $homedir
-    
+
     mkdir Herschel
     mkdir Spitzer
     cd Herschel
-    
+
     mkdir archived
     mkdir processed
     mkdir products
     mkdir results
-    
+
     while [ ! -z $1 ] ; do
         mv ${otherdir}$1 ./archived/
         shift 1
-    done    
+    done
     popd
 }
