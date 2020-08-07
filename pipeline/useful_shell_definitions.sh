@@ -17,7 +17,7 @@ idlproc () {
 }
 
 mkobjdir () {
-    if [ $(hostnaem -s) == "sgra" ] ; then
+    if [[ "$(hostname -s)" == "sgra" ]] ; then
         homedir="/sgraraid/filaments/$1/"
     else
         homedir="/n/sgraraid/filaments/$1/"
@@ -28,6 +28,7 @@ mkobjdir () {
         mkdir $homedir
     fi
     if [ $? -ne 0 ] ; then
+        echo "mkobjdir: EXITING WITH ERROR"
         exit 1
     fi
     pushd $homedir
