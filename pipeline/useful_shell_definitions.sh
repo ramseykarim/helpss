@@ -24,6 +24,9 @@ mkobjdir () {
     fi
     otherdir="$2"
     shift 2
+    echo "1: $homedir"
+    echo "2: $otherdir"
+    exit 0
     if [ ! -d $homedir ] ; then
         mkdir $homedir
     fi
