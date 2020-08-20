@@ -14,7 +14,8 @@ class GNILCModel:
     band_dictionary_template = {'F545': None, 'F857': None}
 
     def __init__(self, *target_args, target_bandpass='PACS160um', extension=0,
-        pixel_scale_arcsec=75, mask_constraint=(0.9, 1.1)):
+        pixel_scale_arcsec=75, mask_constraint=(0.9, 1.1),
+        spire250_filename=None, spire500_filename=None):
         """
         Object representing the GNILC dust model and packaging its capability
         to predict flux in various instrument bands.
@@ -57,6 +58,16 @@ class GNILCModel:
             msg = f"Unsupported argument: {target_args}."
             msg += " Accepted formats are: str(filename) or tuple(data, header)."
             raise TypeError(msg)
+        # """
+        # DEBUG
+        # """
+        # self.target_data = target_data
+        # self.mask = self.accumulate_spire_masks(spire250_filename, spire500_filename)
+        # self.diagnostic_mask()
+        # plt.show()
+        # """
+        # /DEBUG
+        # """
         self.target_data = target_data
         self.target_wcs = WCS(target_head)
         self.target_bandpass_stub = target_bandpass
@@ -83,7 +94,8 @@ class GNILCModel:
             "mode": None,  # final mode determination, by some method
         }
         # Basic operations with reusable results
-        self.accumulate_masks()
+        self.accumulate_planck_masks()
+        self.accumulate_spire_masks(spire250_filename, spire500_filename)
         self.difference_to_target()
         self.offset_statistics()
 
@@ -147,9 +159,9 @@ class GNILCModel:
         ratio = (observed_planck_flux / predicted_planck_flux)
         # Constrain ratio to be within 10% (and not Nan)
         lo, hi = self.mask_constraint
-        self.masks[planck_band_stub] = ~np.isnan(ratio) & (ratio > lo) & (ratio < hi)
+        self.masks[planck_band_stub] = np.isfinite(ratio) & (ratio > lo) & (ratio < hi)
 
-    def accumulate_masks(self):
+    def accumulate_planck_masks(self):
         """
         Generate the Planck observed-to-predicted ratio masks for all
         bands listed in the band_dictionary_template.
@@ -159,7 +171,50 @@ class GNILCModel:
         """
         for band_stub in self.masks:
             self.generate_planck_ratio_mask(band_stub)
-        self.mask = np.all(np.array(list(self.masks.values())), axis=0)
+        planck_mask = np.all(np.array(list(self.masks.values())), axis=0)
+        if self.mask is None:
+            self.mask = planck_mask
+        else:
+            self.mask &= planck_mask
+
+    def accumulate_spire_masks(self, spire250_filename, spire500_filename):
+        """
+        Create additional masks based on the SPIRE 250um and 500um flux.
+        The 500um mask (masking out high fluxes) should aid in eliminating
+        high column density regions. The 250um mask (masking out low flux)
+        should aid in eliminating very low emission regions.
+        Uses quantiles rather than fixed flux levels to mask.
+        This function does not return anything, it just ANDs these masks with
+        self.mask.
+        :param spire250_filename: complete filename of the SPIRE 250um flux
+            FITS file. The grid must be the same as the PACS image being
+            corrected. The resolution does not necessarily need to match.
+            This function does not check if WCS matches.
+        :param spire500_filename: complete filename of the SPIRE 500um flux
+            FITS file. Same restrictions as for 250um.
+        """
+        # Mask out low PACS emission in this band
+        finite_mask = np.isfinite(self.target_data)
+        pacs_lo, pacs_hi = flquantiles(self.target_data[finite_mask].flatten(), 5)
+        pacs_mask = (self.target_data > pacs_lo)
+        # First, mask out low 250um flux
+        spire_data = fits_getdata(spire250_filename)
+        finite_mask = np.isfinite(spire_data)
+        spire_lo, spire_hi = flquantiles(spire_data[finite_mask].flatten(), 5)
+        # Enforce a "SPIRE exists here" implied mask
+        # The reason for this is that SPIRE250 > something is catching low
+        # emission regions. These are likely to be at the edge of the FOV.
+        # We don't want a case where PACS extends further than SPIRE, so a
+        # strip *near* the edge is masked out but the *actual* edge is included.
+        mask250 = (spire_data > spire_lo)
+        # Now mask out high 500um flux
+        spire_data = fits_getdata(spire500_filename)
+        finite_mask = np.isfinite(spire_data)
+        spire_lo, spire_hi = flquantiles(spire_data[finite_mask].flatten(), 8)
+        mask500 = (spire_data < spire_hi)
+        self.mask &= (pacs_mask & mask500)
+
+
 
     def difference_to_target(self):
         """
@@ -421,7 +476,7 @@ def visual_min_max(array):
     :return: tuple of the values near (10%, 90%) in sorted order
     """
     # Clean, flatten, and sort array
-    array_1d = array[~np.isnan(array)].flatten()
+    array_1d = array[np.isfinite(array)].flatten()
     # Use above function for quartiles. Values won't be exact,
     # but will be close enough if the array is large.
     return flquantiles(array_1d, 10)

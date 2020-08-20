@@ -1,24 +1,42 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import sys
+import os
+import datetime
+
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy import units as u
-import compare_images as cimg
+
 from math import ceil
 from scipy.signal import convolve2d
-import sys
-import datetime
+
+# OpenCV, computer vision library
+import cv2
+
+# This is mainly used to convolve and retrieve bandpass-specific info
+# The pipeline/scripts code can do all this and is more specific and better
+# documented. Should eventually switch over to that
+import compare_images as cimg
 
 
+"""
+Created: Unsure!! would have to look back at git commits???
+Edited August 19, 2020 to add/compare to OpenCV inpainting!
+"""
 
-per1_dir = "/n/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/" # jup
-per1_dir = "../" # laptop
 
+# per1_dir = "/n/sgraraid/filaments/data/TEST4/Per/testregion1342190326JS/" # jup
+per1_dir = "/n/sgraraid/filaments/Perseus/Herschel/results/" # Jup
+if not os.path.isdir(per1_dir):
+    per1_dir = "../" # laptop
+
+# IDK what these were for, but they'll fail if opened
 soln_5pcterr = "T4-absdiff-Per1J-3param-plus045-plus05.0pct-cpow-1000-0.1-2.10hpow-1000-0.1-1.80-bcreinit-Th15.95-Nh5E19,2E22.fits"
 soln_2p_5pcterr = "T4-absdiff-Per1J-plus045-plus05.0pct-pow-1000-0.1-1.80.fits"
-
 manticore_nominal_2p = "T4-absdiff-Per1J-plus045-plus05.0pct-pow-1000-0.1-1.80-crop6.fits"
 manticore_nominal_3p = "T4-absdiff-Per1J-3param-plus045-plus05.0pct-cpow-1000-0.1-2.10hpow-1000-0.1-1.80-bcreinit-Th15.95-Nh5E19,2E22-crop6.fits"
+
 
 def prepare_convolution(w, beam, n_sigma=3, method='scipy', data_shape=None):
     # Given a WCS object and beam FWHMs in arcminutes,
@@ -298,24 +316,32 @@ def paint(paint_mask, valid_mask, source_image, kernel, method='scipy'):
     return work_in_progress
 
 
-if __name__ == "__main__":
-    plot_kwargs = dict(origin='lower', vmin=12, vmax=16)
-    fn_old = "/n/sgraraid/filaments/Perseus/Herschel/results/full-1.5.1-Per1-DL3.fits"
+"""
+INPAINTING METHODS
+"""
+
+def inpaint_byhand():
+    # Setup
+    plot_kwargs = dict(origin='lower', vmin=13, vmax=18)
+    fn_old = f"{per1_dir}full-1.5.3-Per1-pow-750-0.05625-1.75.fits"
+    # Open files
     with fits.open(fn_old) as hdul:
-        T = hdul[1].data
-        N = hdul[3].data
+        T = hdul['T'].data
+        N = hdul['N(H2)'].data
         w = WCS(hdul[1].header)
+    # Save originals
     Torig, Norig = T.copy(), N.copy()
-    method = 'manual'
+    method = 'manual' # I think this is just about setting up the inpainting kernel
     # Don't convolve images yet; set up ~2-3x beam inpaint kernel
-    sigma_mult = 5 # INPAINT KERNEL in Herschel-beams
+    sigma_mult = (14./36.) * 8 # INPAINT KERNEL in Herschel-beams
     T, N, conv_kernel = prepare_TN_maps(Torig, Norig, w, n_sigma=3, conv_sigma_mult='noconv', sigma_mult=sigma_mult, method=method)
     if method == 'scipy' or method == 'manual':
         print("KERNEL SHAPE", conv_kernel.shape)
         T = np.pad(T, tuple([x//2]*2 for x in conv_kernel.shape), mode='constant', constant_values=np.nan)
         N = np.pad(N, tuple([x//2]*2 for x in conv_kernel.shape), mode='constant', constant_values=np.nan)
     plot_it = True
-    Ncutoff = 7e21
+    # Ncutoff = 7e21 # this was what I used with DL3, but I don't recall what that mask looked like
+    Ncutoff = 4e21
     ipmask, validmask = inpaint_mask(T, N, Ncutoff=Ncutoff)
     source_mask = validmask & ~ipmask
     has_borders = boolean_edges(source_mask, validmask, valid_borders=True)
@@ -331,33 +357,116 @@ if __name__ == "__main__":
     # axes[2].imshow(ipmask, origin='lower')
     final_img = T
     final_img[np.where(ipmask | ~validmask)] = 0.
+
+
     fig = plt.figure(figsize=(18, 9))
-    fig.canvas.set_window_title("Ncutoff={:4.0E}, kernelwidth={:d}".format(Ncutoff, sigma_mult))
-    plt.subplot(121)
-    plt.imshow(final_img, **plot_kwargs)
+    fig.canvas.set_window_title("Inpainting by hand")
+
+    plt.subplot(221)
+    plt.imshow(Torig, **plot_kwargs)
+    plt.colorbar()
+
+    plt.subplot(223)
+    img_to_show = final_img.copy()
+    img_to_show[img_to_show == 0] = np.nan
+    plt.imshow(img_to_show, **plot_kwargs)
+    plt.colorbar()
+
     final_img = paint(ipmask, validmask, final_img, conv_kernel, method=method)
     if method == 'scipy' or method == 'manual':
         print("ORIGINAL SHAPE", Torig.shape)
         final_img = final_img[(conv_kernel.shape[0]//2):(-conv_kernel.shape[0]//2 + 1), (conv_kernel.shape[1]//2):(-conv_kernel.shape[1]//2 + 1)]
         print("FINAL SHAPE", final_img.shape)
     print("DONE")
-    final_img = prepare_TN_maps(final_img, N, w, conv_sigma_mult=(1./np.sqrt(2)))[0]
+    final_img, nothing1, nothing2 = prepare_TN_maps(final_img, N, w, conv_sigma_mult='noconv') #conv_sigma_mult=(1./np.sqrt(2)))[0]
     final_img[final_img == 0] = np.nan
+
+
     plt.subplot(122)
     plt.imshow(final_img, **plot_kwargs)
     plt.colorbar()
+
+
     # save the image in a manticore-ready format
-    with fits.open(fn_old) as hdul:
-        Thdu = hdul[1]
-        Xshdu = hdul[5]
-        phdu = hdul[0]
-        phdu.header['DATE'] = (datetime.datetime.now(datetime.timezone.utc).astimezone().isoformat(), "File creation date")
-        phdu.header['CREATOR'] = ("Ramsey: {}".format(str(__file__)), "FITS file creator")
-        phdu.header['HISTORY'] = "Ramsey inpainted this on Jan 13 2020."
-        phdu.header['HISTORY'] = "Cutoff: N={:4.0E}. Value from talks with LGM.".format(Ncutoff)
-        Thdu.data = final_img
-        Thdu.header['HISTORY'] = "Inpainted"
-        Xshdu.header['HISTORY'] = "not changed, straight from 1-component manticore"
-        hdulnew = fits.HDUList([phdu, Thdu, Xshdu])
-        hdulnew.writeto("/n/sgraraid/filaments/Perseus/Herschel/results/single-DL3-vary.fits", overwrite=True)
+    if False:
+        with fits.open(fn_old) as hdul:
+            Thdu = hdul[1]
+            Xshdu = hdul[5]
+            phdu = hdul[0]
+            phdu.header['DATE'] = (datetime.datetime.now(datetime.timezone.utc).astimezone().isoformat(), "File creation date")
+            phdu.header['CREATOR'] = ("Ramsey: {}".format(str(__file__)), "FITS file creator")
+            phdu.header['HISTORY'] = "Ramsey inpainted this on Jan 13 2020."
+            phdu.header['HISTORY'] = "Cutoff: N={:4.0E}. Value from talks with LGM.".format(Ncutoff)
+            Thdu.data = final_img
+            Thdu.header['HISTORY'] = "Inpainted"
+            Xshdu.header['HISTORY'] = "not changed, straight from 1-component manticore"
+            hdulnew = fits.HDUList([phdu, Thdu, Xshdu])
+            hdulnew.writeto("/n/sgraraid/filaments/Perseus/Herschel/results/single-DL3-vary.fits", overwrite=True)
+
+    plt.subplots_adjust(top=0.953,
+        bottom=0.088,
+        left=0.0,
+        right=0.984,
+        hspace=0.159,
+        wspace=0.086)
+
     plt.show()
+
+
+def inpaint_openCV(method=cv2.INPAINT_TELEA):
+    """
+    For descriptions of methods
+    https://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_photo/py_inpainting/py_inpainting.html
+    For example code:
+    https://github.com/opencv/opencv/blob/master/samples/python/inpaint.py
+    """
+    # Methods:
+    # Alexandru Telea 2004 method, "Fast Marching"
+    # Navier-Stokes
+
+    # Now generic stuff
+    plot_kwargs = dict(origin='lower', vmin=13, vmax=18)
+    fn_old = f"{per1_dir}full-1.5.3-Per1-pow-750-0.05625-1.75.fits"
+    with fits.open(fn_old) as hdul:
+        T = hdul['T'].data
+        N = hdul['N(H2)'].data
+        w = WCS(hdul[1].header)
+    Torig, Norig = T.copy(), N.copy()
+    Ncutoff = 2.5e21
+    ipmask, validmask = inpaint_mask(T, N, Ncutoff=Ncutoff)
+    source_mask = validmask & ~ipmask
+    has_borders = boolean_edges(source_mask, validmask, valid_borders=True)
+    ipmask[np.where(~has_borders)] = False
+
+    fig = plt.figure("OpenCV inpainting", figsize=(18, 9))
+    plt.subplot(221)
+    plt.imshow(Torig, **plot_kwargs)
+    plt.colorbar()
+
+    plt.subplot(223)
+    img_to_show = Torig.copy()
+    img_to_show[ipmask] = np.nan
+    plt.imshow(img_to_show, **plot_kwargs)
+    plt.colorbar()
+
+    T = T.astype(np.float32) # openCV only works with floats as 32 bits
+    ipmask_8 = ipmask.astype(np.uint8)
+    inpaint_radius = 25 # pixels
+    T_inpainted = cv2.inpaint(T, ipmask_8, inpaint_radius, method)
+
+    plt.subplot(122)
+    plt.imshow(T_inpainted, **plot_kwargs)
+    plt.colorbar()
+
+    plt.subplots_adjust(top=0.953,
+        bottom=0.088,
+        left=0.0,
+        right=0.984,
+        hspace=0.159,
+        wspace=0.086)
+
+    plt.show()
+
+
+if __name__ == "__main__":
+    inpaint_openCV(cv2.INPAINT_NS)

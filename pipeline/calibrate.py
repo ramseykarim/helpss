@@ -92,8 +92,16 @@ if __name__ == "__main__":
     band_stubs = other_kwargs['bands']
     modified_flux_files = {}
     for band_stub in band_stubs:
+        # Line up all the filenames
+        # Use the NATIVE RESOLUTION (but regridded) PACS map
         pacs_flux_filename = f"{data_path}/{band_stub}-image-remapped.fits"
+        # SPIRE flux map filenames for the masks in calc_offset
+        spire_filenames = {
+            "spire250_filename": f"{data_path}/SPIRE250um-image-remapped.fits",
+            "spire500_filename": f"{data_path}/SPIRE500um-image-remapped.fits",
+        }
         print(f"Working on {pacs_flux_filename}")
+        # Handle the possibility of debug runs that don't need calculation
         if other_kwargs['test']:
             print("--- model calculation ---")
             derived_offset = -99.99
@@ -101,14 +109,16 @@ if __name__ == "__main__":
             print("Skipping to assignment. No calculations will be made.")
             derived_offset = -99.99
         else:
-            model = calc_offset.GNILCModel(pacs_flux_filename, target_bandpass=band_stub)
+            model = calc_offset.GNILCModel(pacs_flux_filename, target_bandpass=band_stub, **spire_filenames)
             derived_offset = model.get_offset(full_diagnostic=True)
-
+        # Use the input-handling function to get the assigned offset
         assigned_offset = get_assigned_offset(band_stub, derived_offset)
         if assigned_offset is None:
             # Do other bands, if present, but do not write errors
             STOP = True
             continue
+        # Write out the CONVOLVED flux map plus assigned offset
+        # The offset should NOT have a resolution dependence
         pacs_flux_filename = f"{data_path}/{band_stub}-image-remapped-conv.fits"
         calibrated_pacs_flux_filename = modify_fits.add_offset(int(round(assigned_offset)), pacs_flux_filename, savename=data_path, test=other_kwargs['test'])
         modified_flux_files[band_stub] = calibrated_pacs_flux_filename
