@@ -52,7 +52,7 @@ def prepare_convolution(w, beam, n_sigma=3, method='scipy', data_shape=None):
     ij_arrays = [None, None]
     for x in range(2):
         if method == 'scipy' or method == 'manual':
-            several_sigma_pixels = int(ceil(n_sigma * sigma_arcmin / dthetas[x])) # number of pixels in 5 sigma
+            several_sigma_pixels = int(ceil(n_sigma * sigma_arcmin / dthetas[x])) # number of pixels in n sigma
             kernel_width = 2*several_sigma_pixels + 1 # several_sigma_pixels on each side, plus center for zero
             x_array = np.arange(kernel_width).astype(float) - several_sigma_pixels
         elif method == 'fft':
@@ -235,17 +235,23 @@ def prepare_TN_maps(T, N, w, conv_sigma_mult=None, n_sigma=3, sigma_mult=1, meth
     conv_beam = prepare_convolution(w, new_beam*sigma_mult, n_sigma=n_sigma, data_shape=T.shape, method=method)
     return T, N, conv_beam
 
-def inpaint_mask(T, N, Ncutoff=1.5e21):
+def inpaint_mask(T, N, Ncutoff=1.5e21, Tcutoff=None):
     """
     T is temperature map, N is column density map
     T, N are already convolved up a little bit
+    Tcutoff is not applied if it is None; otherwise, T > Tcutoff is included
+        in the mask. Designed to eliminate extremely hot regions, SF (NGC 1333)
     returns (ipmask, validmask)
     ipmask is true where data needs to be inpainted
     validmask is true where data is valid (not nan)
     """
     nanmask = np.isnan(T) & np.isnan(N)
-    mask_N = (N > Ncutoff) # this is what we want to inpaint
-    return mask_N, ~nanmask
+    main_mask = (N > Ncutoff) # this is what we want to inpaint
+    if Tcutoff is not None:
+        # Include the T > Tcutoff mask in this
+        mask_T = (T > Tcutoff)
+        main_mask |= mask_T
+    return main_mask, ~nanmask
 
 
 def display_inpaint_mask(mask):
@@ -321,6 +327,12 @@ INPAINTING METHODS
 """
 
 def inpaint_byhand():
+    """
+    September 1, 2020: I am going to use a T < 20 filter to get rid of
+        things like NGC 1333
+        I am also going to use a lower N threshold, like 1e21
+        The hope is that T inpainted is always 14 < T < 20
+    """
     # Setup
     plot_kwargs = dict(origin='lower', vmin=13, vmax=18)
     fn_old = f"{per1_dir}full-1.5.3-Per1-pow-750-0.05625-1.75.fits"
@@ -333,7 +345,8 @@ def inpaint_byhand():
     Torig, Norig = T.copy(), N.copy()
     method = 'manual' # I think this is just about setting up the inpainting kernel
     # Don't convolve images yet; set up ~2-3x beam inpaint kernel
-    sigma_mult = (14./36.) * 8 # INPAINT KERNEL in Herschel-beams
+    # sigma_mult = (14./36.) * 8 # INPAINT KERNEL in Herschel-beams
+    sigma_mult = 7.
     T, N, conv_kernel = prepare_TN_maps(Torig, Norig, w, n_sigma=3, conv_sigma_mult='noconv', sigma_mult=sigma_mult, method=method)
     if method == 'scipy' or method == 'manual':
         print("KERNEL SHAPE", conv_kernel.shape)
@@ -341,8 +354,9 @@ def inpaint_byhand():
         N = np.pad(N, tuple([x//2]*2 for x in conv_kernel.shape), mode='constant', constant_values=np.nan)
     plot_it = True
     # Ncutoff = 7e21 # this was what I used with DL3, but I don't recall what that mask looked like
-    Ncutoff = 4e21
-    ipmask, validmask = inpaint_mask(T, N, Ncutoff=Ncutoff)
+    Ncutoff = 1e21
+    Tcutoff = 20.
+    ipmask, validmask = inpaint_mask(T, N, Ncutoff=Ncutoff, Tcutoff=Tcutoff)
     source_mask = validmask & ~ipmask
     has_borders = boolean_edges(source_mask, validmask, valid_borders=True)
     ipmask[np.where(~has_borders)] = False
@@ -378,9 +392,10 @@ def inpaint_byhand():
         final_img = final_img[(conv_kernel.shape[0]//2):(-conv_kernel.shape[0]//2 + 1), (conv_kernel.shape[1]//2):(-conv_kernel.shape[1]//2 + 1)]
         print("FINAL SHAPE", final_img.shape)
     print("DONE")
-    final_img, nothing1, nothing2 = prepare_TN_maps(final_img, N, w, conv_sigma_mult='noconv') #conv_sigma_mult=(1./np.sqrt(2)))[0]
+    final_img, nothing1, nothing2 = prepare_TN_maps(final_img, N, w, conv_sigma_mult=(2./np.sqrt(2)))
     final_img[final_img == 0] = np.nan
 
+    final_img[final_img < 5] = Torig[final_img < 5]
 
     plt.subplot(122)
     plt.imshow(final_img, **plot_kwargs)
@@ -392,16 +407,32 @@ def inpaint_byhand():
         with fits.open(fn_old) as hdul:
             Thdu = hdul[1]
             Xshdu = hdul[5]
-            phdu = hdul[0]
-            phdu.header['DATE'] = (datetime.datetime.now(datetime.timezone.utc).astimezone().isoformat(), "File creation date")
-            phdu.header['CREATOR'] = ("Ramsey: {}".format(str(__file__)), "FITS file creator")
-            phdu.header['HISTORY'] = "Ramsey inpainted this on Jan 13 2020."
-            phdu.header['HISTORY'] = "Cutoff: N={:4.0E}. Value from talks with LGM.".format(Ncutoff)
+            Thdu = hdul[0]
+            Thdu.header['DATE'] = (datetime.datetime.now(datetime.timezone.utc).astimezone().isoformat(), "File creation date")
+            Thdu.header['CREATOR'] = ("Ramsey: {}".format(str(__file__)), "FITS file creator")
+            Thdu.header['HISTORY'] = "Ramsey inpainted this on Jan 13 2020."
+            Thdu.header['HISTORY'] = "Cutoff: N={:4.0E}. Value from talks with LGM.".format(Ncutoff)
             Thdu.data = final_img
             Thdu.header['HISTORY'] = "Inpainted"
             Xshdu.header['HISTORY'] = "not changed, straight from 1-component manticore"
-            hdulnew = fits.HDUList([phdu, Thdu, Xshdu])
+            hdulnew = fits.HDUList([Thdu, Thdu, Xshdu])
             hdulnew.writeto("/n/sgraraid/filaments/Perseus/Herschel/results/single-DL3-vary.fits", overwrite=True)
+    elif True:
+        with fits.open(fn_old) as hdul:
+            Thdu = hdul[1]
+        Thdu.header['DATE'] = (datetime.datetime.now(datetime.timezone.utc).astimezone().isoformat(), "File creation date")
+        Thdu.header['EXTNAME'] = Thdu.header['EXTNAME']
+        Thdu.header['BUNIT'] = Thdu.header['BUNIT']
+        Thdu.header['CREATOR'] = ("Ramsey: {}".format(str(__file__)), "FITS file creator")
+        Thdu.header['HISTORY'] = "Ramsey inpainted this on Sept 1 2020."
+        Thdu.header['HISTORY'] = f"N Cutoff: N={Ncutoff:4.0E}. Value from talks with LGM."
+        Thdu.header['HISTORY'] = f"T Cutoff: T={Tcutoff:.1f}. Prevents inpainting influenced by NGC 1333."
+        Thdu.header['HISTORY'] = "Inpainting kernel had FWHM of 7 500um beams."
+        Thdu.header['HISTORY'] = "Post-process convolution used 2/sqrt(2) 500um beams."
+        Thdu.header['HISTORY'] = "Pixels < 5 K were replaced with the original temperature solution,"
+        Thdu.header['HISTORY'] = " however, low-T edge effects still exist due to post-process convolution"
+        Thdu.data = final_img
+        Thdu.writeto(os.path.join(os.path.dirname(os.path.abspath(fn_old)), "single_T_inpainted.fits"), overwrite=True)
 
     plt.subplots_adjust(top=0.953,
         bottom=0.088,
@@ -469,4 +500,4 @@ def inpaint_openCV(method=cv2.INPAINT_TELEA):
 
 
 if __name__ == "__main__":
-    inpaint_openCV(cv2.INPAINT_NS)
+    inpaint_byhand()
