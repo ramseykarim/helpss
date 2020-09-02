@@ -179,9 +179,9 @@ class GNILCModel:
 
     def accumulate_spire_masks(self, spire250_filename, spire500_filename):
         """
-        Create additional masks based on the SPIRE 250um and 500um flux.
+        Create additional masks based on the (160 or 250um) and 500um flux.
         The 500um mask (masking out high fluxes) should aid in eliminating
-        high column density regions. The 250um mask (masking out low flux)
+        high column density regions. The 160/250um mask (masking out low flux)
         should aid in eliminating very low emission regions.
         Uses quantiles rather than fixed flux levels to mask.
         This function does not return anything, it just ANDs these masks with
@@ -192,6 +192,13 @@ class GNILCModel:
             This function does not check if WCS matches.
         :param spire500_filename: complete filename of the SPIRE 500um flux
             FITS file. Same restrictions as for 250um.
+
+        At present, this uses PACS 160um instead of SPIRE 250um. The reason
+        for this is that the PACS mask gives roughly the same information
+        but matches the PACS footprint better, since the SPIRE images are
+        generally spatially offset.
+
+        At present, 5-quantiles are used for both masks.
         """
         # Mask out low PACS emission in this band
         finite_mask = np.isfinite(self.target_data)
@@ -210,7 +217,7 @@ class GNILCModel:
         # Now mask out high 500um flux
         spire_data = fits_getdata(spire500_filename)
         finite_mask = np.isfinite(spire_data)
-        spire_lo, spire_hi = flquantiles(spire_data[finite_mask].flatten(), 8)
+        spire_lo, spire_hi = flquantiles(spire_data[finite_mask].flatten(), 5)
         mask500 = (spire_data < spire_hi)
         self.mask &= (pacs_mask & mask500)
 
