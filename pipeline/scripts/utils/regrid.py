@@ -170,6 +170,9 @@ def calc_galactic_limits(target_fits_grid, target_fits_header):
     wrapped, it's vastly unlikely that anything will extend nearly 180 degrees.
     Subtract 360 from everything > 180, which should safely gather the ~ 355
     values at ~ -5 and leave the ~ +5 values where they are.
+        ** Ideally this works, subtracting 360 from >180. However, it triggers
+        a bug somewhere else, so I add 360 to <180 instead, and that's just as
+        good for this purpose and avoids the bug elsewhere.
 
     The caveat:
     If we're at high galactic latitude, this could fail, because we might still
@@ -197,8 +200,8 @@ def calc_galactic_limits(target_fits_grid, target_fits_header):
         if (b_min > -82) and (b_max < 82):
             print(f"FIXED: {wrn}", end=" ")
             # This has probably wrapped around 360
-            # Subtract 360 from everything greater than 180 and recalculate
-            l[l > 180] -= 360
+            # Add 360 to everything less than 180 and recalculate
+            l[l < 180] += 360
             l_min, l_max = np.min(l), np.max(l)
             print(f"Adjusted limits are {printlims()}")
         else:
@@ -244,6 +247,15 @@ def make_lb_grid_arrays(projection):
         My hacky fix is to just unmask the arrays even though healpy thinks
         they're junk. This may cause problems somewhere else, but it works
         for now.
+
+        UPDATE Septempber 15, 2020: this caused problems elsewhere (I think)
+            I fixed a 360-wrapping issue, but it created a bug in the
+            interpolation routine. This is the only place I can think that
+            might be manifesting
+
+            I think it's something to do with having both positive and negative
+            l values. After fixing that first bug, I was using values centered
+            around 0. Now I'm using values centered aronud 360, and this works.
     :param projection: healpy CartesianProj object
     :return: meshgrid-input-like arrays of l, b
     """
