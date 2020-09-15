@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import os
+
 from astropy.io.fits import getdata as fits_getdata
 from astropy.wcs import WCS
 from scipy.interpolate import UnivariateSpline
@@ -348,7 +350,7 @@ class GNILCModel:
         """
         Plot the difference image histogram with overlaid Gaussian fit.
         """
-        plt.figure("Difference Histogram", figsize=(9, 5.5))
+        fig = plt.figure("Difference Histogram", figsize=(9, 5.5))
         # Plot the histogram itself
         plt.plot(*self.stats['hist_xy'], '-', color=(.1, .5, .1),
                  linewidth=3, label="$F_{GNILC} - F_{obs}$")
@@ -383,6 +385,7 @@ class GNILCModel:
         plt.xlabel("Pixel difference between predicted/observed (MJy/sr)")
         plt.ylabel("Histogram count")
         plt.legend()
+        return fig
 
     def diagnostic_flux_map(self):
         """
@@ -417,18 +420,20 @@ class GNILCModel:
             self.target_bandpass_stub))
 
         plt.subplots_adjust(top=0.88, bottom=0.11, left=0.05, right=0.975, hspace=0.2, wspace=0.115)
+        return fig
 
     def diagnostic_mask(self):
         """
         Plot the mask used to calculate difference statistics
         """
-        plt.figure("GNILC Trust Mask")
+        fig = plt.figure("GNILC Trust Mask")
         plt.imshow(self.mask.astype(int), origin='lower',
                    vmin=0, vmax=1, cmap='Greys_r')
         plt.colorbar()
         plt.title("Mask for Difference Image; Included if True (1)")
+        return fig
 
-    def get_offset(self, no_diagnostic=False, full_diagnostic=False):
+    def get_offset(self, no_diagnostic=False, full_diagnostic=False, savedir=None):
         """
         Calculate and return the offset.
         Plot the histogram diagnostic unless no_diagnostic is True.
@@ -447,17 +452,28 @@ class GNILCModel:
         print("="*25)
         print("="*25)
         if not no_diagnostic:
-            self.diagnostic_difference_histogram()
+            figs = []
+            figs.append(self.diagnostic_difference_histogram())
             if full_diagnostic:
-                self.diagnostic_flux_map()
-                self.diagnostic_mask()
-            plt.show()
+                figs.append(self.diagnostic_flux_map())
+                figs.append(self.diagnostic_mask())
+            if savedir is not None:
+                for fig in figs:
+                    savename = os.path.join(savedir, fig.canvas.get_window_title().replace(' ', '_') + '.png')
+                    fig.savefig(savename)
+            else:
+                plt.show()
         if np.isnan(offset) or np.abs(offset) > 1e6:
             msg = "Apparent issue with the derived offset. "
             msg += "Check diagnostic plots with the full_diagnostic=True argument to this function."
             raise RuntimeError(msg)
         return offset
 
+
+
+"""
+Helper functions
+"""
 
 def flquantiles(x, q, presorted=False):
     """
