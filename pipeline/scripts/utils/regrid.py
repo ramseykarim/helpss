@@ -145,13 +145,68 @@ def calc_galactic_limits(target_fits_grid, target_fits_header):
     Calculates the high and low galactic coordinate limits in the image.
     Does not assume that the image represents a true "grid" or is oriented
         with l and b
+    Edited Sept 15, 2020 to handle 360-wrap edge case.
+        astropy_healpix might be a smoother solution.
     :param target_fits_grid: fits data array
     :param target_fits_header: fits header; needs proper WCS info
     :return: tuple( (min_l, max_l), (min_b, max_b) )
     """
     l, b = wcs2galactic(WCS(target_fits_header),
                         make_ij_list(target_fits_grid.shape))
-    return (np.min(l), np.max(l)), (np.min(b), np.max(b))
+    b_min, b_max = np.min(b), np.max(b)
+    l_min, l_max = np.min(l), np.max(l)
+    """
+    Handle edge case of wrapping at 360
+
+    The problem:
+    If the longitude values wrap around 360, those > 360 are represented as
+    positive values < 10 or so (since these regions only extend like 5 deg).
+    My min and max are then essentially 0 and 360, the entire l span.
+
+    My solution:
+    Calculate min and max l first. Check if min is < 90 and max > 270.
+    If this is the case, it's highly likely that we wrapped and split the
+    distribution. Our real values probably only extend ~5 degrees, so if we've
+    wrapped, it's vastly unlikely that anything will extend nearly 180 degrees.
+    Subtract 360 from everything > 180, which should safely gather the ~ 355
+    values at ~ -5 and leave the ~ +5 values where they are.
+
+    The caveat:
+    If we're at high galactic latitude, this could fail, because we might still
+    only span ~5 degrees in true separation, but we might span a significant
+    longitude due to the cosine factor.
+
+    The solution to the caveat:
+    Therefore, I impose a check on the latitude limits. I require b_min to be
+    larger than something near -80 and b_max to be smaller than something near
+    +80. This means that the most polar latitude must stay around 10 degrees
+    from the pole. If the most polar latitude is closer than that to the pole,
+    and the longitude wraps at 360, then we will simply have to work with
+    the entire longitude span. At ~ |80| latitude, this should be around 6
+    times better (for a thin latitude layer) than the worst case (0 latitude).
+
+    I picked 85 degrees because it ensures that the problem, if it still
+    occurs, will still be ~ 5-10 times better than the worst unhandled case.
+    It's probably fine to get closer to 90, but I'd rather stay 5 degrees away.
+    At any rate, I don't think we have any polar sources, since that's not where
+    we should find lots of dust.
+    """
+    if (l_min < 90) and (l_max > 270):
+        printlims = lambda : f"{l_min:.2f}, {l_max:.2f}"
+        wrn = f"Gal. lon limits ({printlims()}) span < 90 to > 270."
+        if (b_min > -82) and (b_max < 82):
+            print(f"FIXED: {wrn}", end=" ")
+            # This has probably wrapped around 360
+            # Subtract 360 from everything greater than 180 and recalculate
+            l[l > 180] -= 360
+            l_min, l_max = np.min(l), np.max(l)
+            print(f"Adjusted limits are {printlims()}")
+        else:
+            print("+"*45)
+            print(f"WARNING: {wrn}")
+            print("Source is close to polar, so I am *not* addressing this.")
+            print("+"*45)
+    return (l_min, l_max), (b_min, b_max)
 
 
 def calc_pixel_count(coord_limits_galactic, pixel_scale_arcsec):
@@ -538,4 +593,3 @@ def gaussian(x, mu, sigma, amplitude):
     coefficient = amplitude / (np.sqrt(2 * np.pi) * sigma)
     exponent = -((x - mu) ** 2 / (2 * sigma * sigma))
     return coefficient * np.exp(exponent)
-
