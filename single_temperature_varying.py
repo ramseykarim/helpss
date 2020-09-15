@@ -346,7 +346,7 @@ def inpaint_byhand():
     method = 'manual' # I think this is just about setting up the inpainting kernel
     # Don't convolve images yet; set up ~2-3x beam inpaint kernel
     # sigma_mult = (14./36.) * 8 # INPAINT KERNEL in Herschel-beams
-    sigma_mult = 7.
+    sigma_mult = 10. / cimg.bandpass_beam_sizes['SPIRE500um']
     T, N, conv_kernel = prepare_TN_maps(Torig, Norig, w, n_sigma=3, conv_sigma_mult='noconv', sigma_mult=sigma_mult, method=method)
     if method == 'scipy' or method == 'manual':
         print("KERNEL SHAPE", conv_kernel.shape)
@@ -427,12 +427,12 @@ def inpaint_byhand():
         Thdu.header['HISTORY'] = "Ramsey inpainted this on Sept 1 2020."
         Thdu.header['HISTORY'] = f"N Cutoff: N={Ncutoff:4.0E}. Value from talks with LGM."
         Thdu.header['HISTORY'] = f"T Cutoff: T={Tcutoff:.1f}. Prevents inpainting influenced by NGC 1333."
-        Thdu.header['HISTORY'] = "Inpainting kernel had FWHM of 7 500um beams."
+        Thdu.header['HISTORY'] = "Inpainting kernel had FWHM of 10 arcmin."
         Thdu.header['HISTORY'] = "Post-process convolution used 2/sqrt(2) 500um beams."
         Thdu.header['HISTORY'] = "Pixels < 5 K were replaced with the original temperature solution,"
         Thdu.header['HISTORY'] = " however, low-T edge effects still exist due to post-process convolution"
         Thdu.data = final_img
-        Thdu.writeto(os.path.join(os.path.dirname(os.path.abspath(fn_old)), "single_T_inpainted.fits"), overwrite=True)
+        Thdu.writeto(os.path.join(os.path.dirname(os.path.abspath(fn_old)), "single_T_inpainted_10arcmin.fits"), overwrite=True)
 
     plt.subplots_adjust(top=0.953,
         bottom=0.088,
