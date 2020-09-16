@@ -26,44 +26,6 @@ __author__ = "Ramsey Karim"
 import numpy as np
 
 
-def dilate(mask, forbidden):
-    """
-    Dilate the 1s in mask into the 0s in mask. Never touch pixels that are
-    1 in forbidden. Dilation is a one-pixel shift into all of the 8 adjacent
-    available pixels.
-
-    Helper function for padded_mask
-
-    :param mask: np.ndarray of bool
-        1 where we dilate FROM, 0 where we dilate INTO
-    :param forbidden: np.ndarray of bool
-        1 where we should never work (NaN equivalent)
-        All 1s in mask should be 0 in forbidden
-    """
-    new_mask = np.copy(mask)
-    # Shift right
-    new_mask[:, 1:] |= mask[:, :-1]
-    # Shift left
-    new_mask[:, :-1] |= mask[:, 1:]
-    # Shift up
-    new_mask[1:, :] |= mask[:-1, :]
-    # Shift down
-    new_mask[:-1, :] |= mask[1:, :]
-
-    # Shift up-right
-    new_mask[1:, 1:] |= mask[:-1, :-1]
-    # Shift down-right
-    new_mask[:-1, 1:] |= mask[1:, :-1]
-    # Shift down-left
-    new_mask[:-1, :-1] |= mask[1:, 1:]
-    # Shift up-left
-    new_mask[1:, :-1] |= mask[:-1, 1:]
-
-    new_mask[forbidden] = False
-
-    return new_mask
-
-
 def padded_mask(array, first_pad, second_pad):
     """
     Masking function that selects a border around designated pixels.
@@ -111,3 +73,41 @@ def padded_mask(array, first_pad, second_pad):
     # Conserve NaNs
     result[nan_mask] = np.nan
     return result
+
+
+def dilate(mask, forbidden):
+    """
+    Dilate the 1s in mask into the 0s in mask. Never touch pixels that are
+    1 in forbidden. Dilation is a one-pixel shift into all of the 8 adjacent
+    available pixels.
+
+    Helper function for padded_mask; this is NOT the main function.
+
+    :param mask: np.ndarray of bool
+        1 where we dilate FROM, 0 where we dilate INTO
+    :param forbidden: np.ndarray of bool
+        1 where we should never work (NaN equivalent)
+        All 1s in mask should be 0 in forbidden
+    """
+    new_mask = np.copy(mask)
+    # Shift right
+    new_mask[:, 1:] |= mask[:, :-1]
+    # Shift left
+    new_mask[:, :-1] |= mask[:, 1:]
+    # Shift up
+    new_mask[1:, :] |= mask[:-1, :]
+    # Shift down
+    new_mask[:-1, :] |= mask[1:, :]
+
+    # Shift up-right
+    new_mask[1:, 1:] |= mask[:-1, :-1]
+    # Shift down-right
+    new_mask[:-1, 1:] |= mask[1:, :-1]
+    # Shift down-left
+    new_mask[:-1, :-1] |= mask[1:, 1:]
+    # Shift up-left
+    new_mask[1:, :-1] |= mask[:-1, 1:]
+
+    new_mask[forbidden] = False
+
+    return new_mask
