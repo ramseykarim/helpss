@@ -2,19 +2,13 @@
 Mask function designed from specifications by LGM in the Sept 9, 2020 HELPSS
 meeting.
 
-The function takes in one 2D array, with float values.
-The array represents a mask with three possible values.
-The value 1 should represent valid pixels, "included" in some sense.
-The value 0 should represent invalid pixels along whose boundaries with valid
-pixels this function will operate.
-The value NaN should should represent invalid pixels whose boundaries with
-valid pixels are ignored.
+The function takes an array with 3 possible values: 1, 0, and NaN
 
 The function also takes in a first_pad and a second_pad value, both specified
 in number of iterations (mostly equivalent to pixels).
-The function will dilate the 0 pixels <first_pad> iterations into 1 pixels
-from the boundaries of 0 pixels (but not NaN pixels).
-Then, it will dilate <second_pad> iterations into the 1 pixels from that new
+The function will dilate the 1 pixels <first_pad> iterations into 0 pixels
+from the boundaries of 1 pixels (but not NaN pixels).
+Then, it will dilate <second_pad> iterations into the 0 pixels from that new
 boundary. That second round of dilation will be represented by 1s in a new mask
 which will be returned. In the new mask, all other pixels will be 0s, except
 for the NaNs which will remain NaN.
