@@ -392,7 +392,8 @@ class HEALPix2FITS:
         # Interpolate. Invert the longitude order to be strictly increasing.
         interp_values_list = interpn((self._b_src, self._l_src[::-1]),
                                      intermediate[:, ::-1],
-                                     self._bl_target_pairs, method=method)
+                                     self._bl_target_pairs, method=method,
+                                     bounds_error=False, fill_value=np.nan)
         interpolated_data = assign_to_pixels(interp_values_list,
                                              self._pixel_list,
                                              self.target_data.shape)

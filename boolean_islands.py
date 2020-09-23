@@ -83,6 +83,12 @@ class BooleanIslands:
 
 
 def dilate(array, times=1, forbidden=None):
+    """
+    This is slower than the dilation routine in padded_mask. Is there a good
+    reason to stick with this one?
+
+    I should consider rewriting some of the utilities in this file.
+    """
     if times == 0:
         return np.copy(array)
     if forbidden is None:

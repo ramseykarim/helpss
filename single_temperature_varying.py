@@ -1,4 +1,7 @@
 import numpy as np
+import matplotlib
+font = {'family': 'sans', 'weight': 'normal', 'size': 8}
+matplotlib.rc('font', **font)
 import matplotlib.pyplot as plt
 import sys
 import os
@@ -18,6 +21,8 @@ import cv2
 # The pipeline/scripts code can do all this and is more specific and better
 # documented. Should eventually switch over to that
 import compare_images as cimg
+from padded_mask import padded_mask
+import boolean_islands
 
 
 """
@@ -260,9 +265,14 @@ def display_inpaint_mask(mask):
     plt.imshow(mask, origin='lower')
 
 def boolean_edges(mask, valid_mask, valid_borders=False):
-    # takes in a bool array
-    # returns bool array of 1s from mask that border 0s
-    # will not allow 1s anywhere valid_mask is 0
+    """
+    takes in a bool array
+    returns bool array of 1s from mask that border 0s
+    will not allow 1s anywhere valid_mask is 0
+
+    This is the same as the new padded_mask routine! Maybe we can combine?
+    I knew I'd done this before...
+    """
 
     mshape = mask.shape
 
@@ -499,5 +509,74 @@ def inpaint_openCV(method=cv2.INPAINT_TELEA):
     plt.show()
 
 
+def reasonable_temperature_range():
+    """
+    Use the padded_mask function with the mask developed here for inpainting
+    to constrain the reasonable range of temperatures that should be inpainted,
+    or, should be used to trim down Lee's stack of possible models.
+
+    By Tracy's recommendation, the first_pad will be 10' and the second 15'
+    These must be converted to integer pixels.
+    """
+    # Copy some boilerplate from the inpain_* functions
+    # Setup
+    plot_kwargs = dict(origin='lower', vmin=13, vmax=18)
+    fn_old = f"{per1_dir}full-1.5.3-Per1-pow-750-0.05625-1.75.fits"
+    # Open files
+    with fits.open(fn_old) as hdul:
+        T = hdul['T'].data
+        N = hdul['N(H2)'].data
+        w = WCS(hdul[1].header)
+    # Save originals
+    Torig, Norig = T.copy(), N.copy()
+
+    Ncutoff = 1e21
+    Tcutoff = 20.
+    ipmask, validmask = inpaint_mask(T, N, Ncutoff=Ncutoff, Tcutoff=Tcutoff)
+    source_mask = validmask & ~ipmask
+    has_borders = boolean_edges(source_mask, validmask, valid_borders=True)
+    # I don't know what this does
+    # It looks like it changes like 2 pixels, but maybe they were a problem
+    ipmask[np.where(~has_borders)] = False
+
+    ipmask_to_pad = ipmask.astype(float)
+    ipmask_to_pad[~validmask] = np.nan
+    pixel_size = 14*u.arcsec
+    lower, upper = 10, 15
+    arcmin_to_pixel = lambda x: int(round((x*u.arcmin/pixel_size).decompose().to_value()))
+    padded_ipmask = padded_mask(ipmask_to_pad, arcmin_to_pixel(lower), arcmin_to_pixel(upper))
+
+    # plt.imshow(ipmask, origin='lower')
+    # plt.show()
+    # return
+    neighbor_limit = 2
+    islands = boolean_islands.get_islands(ipmask, neighbor_limit)
+    n = 5
+    largest_n_islands = []
+    for i in range(n):
+        largest_island = max(islands, key=len)
+        largest_n_islands.extend(list(largest_island))
+        islands.remove(largest_island)
+    cleaned_ipmask = np.zeros_like(ipmask)
+    cleaned_ipmask[tuple(zip(*largest_n_islands))] = True
+    cleaned_ipmask_to_pad = cleaned_ipmask.astype(float)
+    cleaned_ipmask_to_pad[~validmask] = np.nan
+    padded_cleaned_ipmask = padded_mask(cleaned_ipmask_to_pad, arcmin_to_pixel(lower), arcmin_to_pixel(upper))
+
+    fig, axes = plt.subplots(2, 2, sharex=True, sharey=True, figsize=(12, 12))
+    axes[0, 0].imshow(ipmask_to_pad, origin='lower')
+    axes[0, 0].set_title(f"Original mask: N > {Ncutoff:.1E}, T > {Tcutoff:.1f}")
+    axes[0, 1].imshow(padded_ipmask, origin='lower')
+    axes[0, 1].set_title(f"Padded mask made from original, between {lower*u.arcmin} and {upper*u.arcmin}")
+    axes[1, 0].imshow(cleaned_ipmask_to_pad, origin='lower')
+    axes[1, 0].set_title(f"Original mask, cleaned (>={neighbor_limit} neighbors, {n} largest islands)")
+    axes[1, 1].imshow(padded_cleaned_ipmask, origin='lower')
+    axes[1, 1].set_title(f"Padded mask made from cleaned, between {lower*u.arcmin} and {upper*u.arcmin}")
+
+    fig.savefig(f"/home/ramsey/Pictures/9-16-20-work/padded_mask_example_{Ncutoff:.1E}_{lower}-{upper}.png")
+    # plt.show()
+
+
+
 if __name__ == "__main__":
-    inpaint_byhand()
+    args = reasonable_temperature_range()
