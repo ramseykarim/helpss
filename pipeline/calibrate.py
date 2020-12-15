@@ -20,7 +20,7 @@ import argparse
 from scripts import calc_offset, modify_fits
 # calc_offset, modify_fits = None, None
 
-bands = {70: "PACS70um", 160: "PACS160um"}
+bands = {70: "PACS70um", 160: "PACS160um", 250: "SPIRE250um", 350: "SPIRE350um", 500: "SPIRE500um"}
 uncertainties = {"PACS70um": 6., "PACS160um": 8., "SPIRE250um": 5.5, "SPIRE350um": 5.5, "SPIRE500um": 5.5}
 
 
