@@ -195,9 +195,9 @@ class GNILCModel:
         :param spire500_filename: complete filename of the SPIRE 500um flux
             FITS file. Same restrictions as for 250um.
 
-        At present, this uses PACS 160um instead of SPIRE 250um. The reason
-        for this is that the PACS mask gives roughly the same information
-        but matches the PACS footprint better, since the SPIRE images are
+        At present, this uses THIS BAND instead of SPIRE 250um. The reason
+        for this is that this mask gives roughly the same information
+        but matches this image's footprint better, since the SPIRE images are
         generally spatially offset.
 
         At present, 5-quantiles are used for both masks.
