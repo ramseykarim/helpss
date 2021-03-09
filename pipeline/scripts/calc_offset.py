@@ -202,11 +202,18 @@ class GNILCModel:
 
         At present, 5-quantiles are used for both masks.
         """
+        # Load the SPIRE 500 data (so we can do the finite mask first)
+        spire_data = fits_getdata(spire500_filename)
+        # Make the finite mask from both images
+        finite_mask = np.isfinite(spire_data) & np.isfinite(self.target_data)
         # Mask out low PACS emission in this band
-        finite_mask = np.isfinite(self.target_data)
         pacs_lo, pacs_hi = flquantiles(self.target_data[finite_mask].flatten(), 5)
         pacs_mask = (self.target_data > pacs_lo)
         debug_mask_1 = (self.target_data < pacs_lo)
+        """
+        # I commented this stuff out on March 9, 2021 because I don't think I'll
+        #   use any of it. It's all here for reference though.
+
         # First, mask out low 250um flux
         spire_data = fits_getdata(spire250_filename)
         finite_mask = np.isfinite(spire_data)
@@ -217,44 +224,54 @@ class GNILCModel:
         # We don't want a case where PACS extends further than SPIRE, so a
         # strip *near* the edge is masked out but the *actual* edge is included.
         mask250 = (spire_data > spire_lo)
+        """
         # Now mask out high 500um flux
-        spire_data = fits_getdata(spire500_filename)
-        finite_mask = np.isfinite(spire_data)
         spire_lo, spire_hi = flquantiles(spire_data[finite_mask].flatten(), 5)
         mask500 = (spire_data < spire_hi)
         debug_mask_2 = (spire_data > spire_hi)
         self.mask &= (pacs_mask & mask500)
+
         # # DEBUG: just plotting some stuff to learn about the mask
-        fig = plt.figure("Flux Masks", figsize=(18, 9))
+        fig = plt.figure("Flux and NaN Masks", figsize=(18, 9))
         N_finite = np.sum(finite_mask)
         print("Finite: ", N_finite)
-        N_this = np.sum(pacs_mask)
+        N_this = np.sum(pacs_mask[finite_mask])
         print("Lower than 20%: ", (N_this/N_finite))
-        N_500 = np.sum(mask500)
+        N_500 = np.sum(mask500[finite_mask])
         print("Higher than 20% ", (N_500/N_finite))
         ax1 = plt.subplot(231)
-        ax1.imshow(debug_mask_1)
+        ax1.imshow(debug_mask_1, origin='lower')
         ax1.set_title(f"Bottom 20% of {self.target_bandpass_stub}")
 
         ax3 = plt.subplot(232)
-        ax3.imshow(debug_mask_1.astype(int) + debug_mask_2.astype(int))
-        ax3.set_title(f"Mask1 + mask2")
+        ax3.imshow(debug_mask_1.astype(int) + debug_mask_2.astype(int), origin='lower')
+        ax3.set_title(f"Mask1 OR mask2")
 
         ax2 = plt.subplot(233)
-        ax2.imshow(debug_mask_2)
+        ax2.imshow(debug_mask_2, origin='lower')
         ax2.set_title("Top 20% of 500um")
 
         ax = plt.subplot(234)
-        ax.imshow(pacs_mask)
-        ax.set_title(f"{self.target_bandpass_stub} mask")
+        # True is +1, False is 0, NaN is -1
+        debug_mask_1_int = debug_mask_1.astype(int)
+        debug_mask_1_int[~finite_mask] -= 2
+        ax.imshow(debug_mask_1_int, origin='lower')
+        ax.set_title(f"Same as above with NaNs highlighted")
 
         ax = plt.subplot(235)
-        ax.imshow(pacs_mask & mask500)
-        ax.set_title(f"Both mask")
+        # Same rules as above
+        debug_mask_1_int = debug_mask_1.astype(int)
+        debug_mask_2_int = debug_mask_2.astype(int)
+        debug_mask_1_int[debug_mask_1_int == 0] = debug_mask_2_int[debug_mask_1_int == 0]
+        debug_mask_1_int[~finite_mask] -= 2
+        ax.imshow(debug_mask_1_int, origin='lower')
+        ax.set_title(f"Both masks, NaNs highlighted")
 
         ax = plt.subplot(236)
-        ax.imshow(mask500)
-        ax.set_title(f"500um mask")
+        # Same rules as above
+        debug_mask_2_int[~finite_mask] -= 2
+        ax.imshow(debug_mask_2_int, origin='lower')
+        ax.set_title(f"500um mask, NaNs highlighted")
 
         fig.savefig(fig.canvas.get_window_title().replace(' ', '_') + '.png')
 
