@@ -206,6 +206,7 @@ class GNILCModel:
         finite_mask = np.isfinite(self.target_data)
         pacs_lo, pacs_hi = flquantiles(self.target_data[finite_mask].flatten(), 5)
         pacs_mask = (self.target_data > pacs_lo)
+        debug_mask_1 = (self.target_data < pacs_lo)
         # First, mask out low 250um flux
         spire_data = fits_getdata(spire250_filename)
         finite_mask = np.isfinite(spire_data)
@@ -221,7 +222,41 @@ class GNILCModel:
         finite_mask = np.isfinite(spire_data)
         spire_lo, spire_hi = flquantiles(spire_data[finite_mask].flatten(), 5)
         mask500 = (spire_data < spire_hi)
+        debug_mask_2 = (spire_data > spire_hi)
         self.mask &= (pacs_mask & mask500)
+        # # DEBUG: just plotting some stuff to learn about the mask
+        fig = plt.figure("Flux Masks", figsize=(18, 9))
+        N_finite = np.sum(finite_mask)
+        print("Finite: ", N_finite)
+        N_this = np.sum(pacs_mask)
+        print("Lower than 20%: ", (N_this/N_finite))
+        N_500 = np.sum(mask500)
+        print("Higher than 20% ", (N_500/N_finite))
+        ax1 = plt.subplot(231)
+        ax1.imshow(debug_mask_1)
+        ax1.set_title(f"Bottom 20% of {self.target_bandpass_stub}")
+
+        ax3 = plt.subplot(232)
+        ax3.imshow(debug_mask_1.astype(int) + debug_mask_2.astype(int))
+        ax3.set_title(f"Mask1 + mask2")
+
+        ax2 = plt.subplot(233)
+        ax2.imshow(debug_mask_2)
+        ax2.set_title("Top 20% of 500um")
+
+        ax = plt.subplot(234)
+        ax.imshow(pacs_mask)
+        ax.set_title(f"{self.target_bandpass_stub} mask")
+
+        ax = plt.subplot(235)
+        ax.imshow(pacs_mask & mask500)
+        ax.set_title(f"Both mask")
+
+        ax = plt.subplot(236)
+        ax.imshow(mask500)
+        ax.set_title(f"500um mask")
+
+        fig.savefig(fig.canvas.get_window_title().replace(' ', '_') + '.png')
 
 
 
