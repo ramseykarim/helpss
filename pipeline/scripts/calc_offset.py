@@ -273,7 +273,7 @@ class GNILCModel:
         ax.imshow(debug_mask_2_int, origin='lower')
         ax.set_title(f"500um mask, NaNs highlighted")
 
-        fig.savefig(fig.canvas.get_window_title().replace(' ', '_') + self.target_bandpass_stub + '.png')
+        fig.savefig(fig.canvas.get_window_title().replace(' ', '_') + "_" + self.target_bandpass_stub + '.png')
 
 
 
@@ -511,7 +511,7 @@ class GNILCModel:
                 figs.append(self.diagnostic_mask())
             if savedir is not None:
                 for fig in figs:
-                    savename = os.path.join(savedir, fig.canvas.get_window_title().replace(' ', '_') + self.target_bandpass_stub + '.png')
+                    savename = os.path.join(savedir, fig.canvas.get_window_title().replace(' ', '_') + "_" + self.target_bandpass_stub + '.png')
                     fig.savefig(savename)
             else:
                 plt.show()
