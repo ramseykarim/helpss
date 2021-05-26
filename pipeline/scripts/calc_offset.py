@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import os
 
 from astropy.io.fits import getdata as fits_getdata
+from astropy.io import fits
 from astropy.wcs import WCS
 from scipy.interpolate import UnivariateSpline
 from scipy.optimize import curve_fit
@@ -17,7 +18,8 @@ class GNILCModel:
 
     def __init__(self, *target_args, target_bandpass='PACS160um', extension=0,
         pixel_scale_arcsec=75, mask_constraint=(0.9, 1.1),
-        spire250_filename=None, spire500_filename=None):
+        spire250_filename=None, spire500_filename=None,
+        save_beta_only=False):
         """
         Object representing the GNILC dust model and packaging its capability
         to predict flux in various instrument bands.
@@ -48,6 +50,8 @@ class GNILCModel:
             fractional agreement between the predicted and observed
             HFI fluxes. These constraints are used to make masks for the
             offset derivation.
+        :param save_beta_only: intercept the whole bandpass calculation thingy
+            and just save the mask and the beta map gridded to the target.
         """
         if len(target_args) == 1 and type(target_args[0]) == str:
             # String file path
@@ -98,8 +102,11 @@ class GNILCModel:
         # Basic operations with reusable results
         self.accumulate_planck_masks()
         self.accumulate_spire_masks(spire250_filename, spire500_filename)
-        self.difference_to_target()
-        self.offset_statistics()
+        if save_beta_only:
+            self.intercept_and_save_beta_and_mask()
+        else:
+            self.difference_to_target()
+            self.offset_statistics()
 
     @plu.shape_of_component
     def load_component(self, stub):
@@ -523,7 +530,24 @@ class GNILCModel:
             raise RuntimeError(msg)
         return offset
 
-
+    def intercept_and_save_beta_and_mask(self):
+        """
+        May 26, 2021
+        Regrid the beta map to the target grid and save that and the (full) mask
+        to .fits files
+        """
+        print(self.beta.shape)
+        print(self.target_data.shape)
+        beta_regrid = self.projector.intermediate_to_target(intermediate=self.beta)
+        beta_hdr = self.target_wcs.to_header()
+        beta_hdr['COMMENT'] = "Planck GNILC spectral index"
+        beta_hdu = fits.PrimaryHDU(data=beta_regrid, header=beta_hdr)
+        beta_hdu.writeto("planck-beta.fits")
+        mask_hdr = self.target_wcs.to_header()
+        mask_hdr['COMMENT'] = "Mask from calc_offset.py"
+        mask_hdu = fits.PrimaryHDU(data=self.mask.astype(float), header=mask_hdr)
+        mask_hdu.writeto("calib-mask.fits")
+        print("Wrote 2 fits files.")
 
 """
 Helper functions

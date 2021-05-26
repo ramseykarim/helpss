@@ -36,6 +36,7 @@ def get_data_path():
     parser.add_argument('--band', type=int, nargs='*', default=[160], help="select the PACS bands to be calibrated. Use integer wavelengths in microns.")
     parser.add_argument('--calc', action='store_true', help="skip the assignment stage. No assignment dialog will be produced. Figures (if produced) will be saved to the formerly specified directory.")
     parser.add_argument('--assign', action='store_true', help="skip straight to the offset assignment. No calculations or diagnostic figures will be produced.")
+    parser.add_argument('--beta', action='store_true', help="don't calibrate, just save the beta image and mask as fits files and quit.")
     args = parser.parse_args()
     data_path = args.directory
 
@@ -142,8 +143,10 @@ if __name__ == "__main__":
             print("Skipping to assignment. No calculations will be made.")
             derived_offset = -99.99
         else:
-            model = calc_offset.GNILCModel(pacs_flux_filename, target_bandpass=band_stub, **spire_filenames)
-            derived_offset = model.get_offset(full_diagnostic=True, savedir=(data_path if other_args.calc else None))
+            beta_only = other_args.beta
+            model = calc_offset.GNILCModel(pacs_flux_filename, target_bandpass=band_stub, **spire_filenames, save_beta_only=beta_only)
+            if not beta_only:
+                derived_offset = model.get_offset(full_diagnostic=True, savedir=(data_path if other_args.calc else None))
 
         # Handle the possibility that we want to save the images (done) and quit
         if other_args.calc:
