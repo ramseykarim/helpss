@@ -99,8 +99,9 @@ class GNILCModel:
             "gauss_fit": None,  # tuple() Gaussian fit parameters
             "mode": None,  # final mode determination, by some method
         }
+
         # Basic operations with reusable results
-        self.accumulate_planck_masks()
+        # self.accumulate_planck_masks()
         self.accumulate_spire_masks(spire250_filename, spire500_filename)
         if save_beta_only:
             self.intercept_and_save_beta_and_mask()
@@ -236,7 +237,11 @@ class GNILCModel:
         spire_lo, spire_hi = flquantiles(spire_data[finite_mask].flatten(), 5)
         mask500 = (spire_data < spire_hi)
         debug_mask_2 = (spire_data > spire_hi)
-        self.mask &= (pacs_mask & mask500)
+
+        if self.mask is None:
+            self.mask = (pacs_mask & mask500)
+        else:
+            self.mask &= (pacs_mask & mask500)
 
         # # DEBUG: just plotting some stuff to learn about the mask
         fig = plt.figure("Flux and NaN Masks", figsize=(18, 9))
