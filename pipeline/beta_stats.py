@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 Quickly write out some stats given the Planck spectral index map saved in
 a given directory.
