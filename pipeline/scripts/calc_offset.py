@@ -543,7 +543,7 @@ class GNILCModel:
         """
         print(self.beta.shape)
         print(self.target_data.shape)
-        beta_regrid = self.projector.intermediate_to_target(intermediate=self.beta)
+        beta_regrid = self.projector.intermediate_to_target(intermediate=self.beta[0, :, :])
         beta_hdr = self.target_wcs.to_header()
         beta_hdr['COMMENT'] = "Planck GNILC spectral index"
         beta_hdu = fits.PrimaryHDU(data=beta_regrid, header=beta_hdr)
