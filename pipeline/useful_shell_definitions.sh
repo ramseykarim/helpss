@@ -48,3 +48,14 @@ mkobjdir () {
     done
     popd
 }
+
+print_beta () {
+  file_list=$(ls ${1}Herschel/processed/*/beta-stats.txt)
+  for i in $file_list ; do
+    echo $i
+    echo "-----------"
+    cat $i
+    echo "-----------"
+    echo "-----------"
+  done
+}
