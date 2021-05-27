@@ -143,10 +143,8 @@ if __name__ == "__main__":
             print("Skipping to assignment. No calculations will be made.")
             derived_offset = -99.99
         else:
-            beta_only = other_args.beta
-            print("ARE WE DOING BETA?", beta_only)
-            model = calc_offset.GNILCModel(pacs_flux_filename, target_bandpass=band_stub, **spire_filenames, save_beta_only=beta_only)
-            if not beta_only:
+            model = calc_offset.GNILCModel(pacs_flux_filename, target_bandpass=band_stub, **spire_filenames, save_beta_only=other_args.beta)
+            if not other_args.beta:
                 derived_offset = model.get_offset(full_diagnostic=True, savedir=(data_path if other_args.calc else None))
 
         # Handle the possibility that we want to save the images (done) and quit

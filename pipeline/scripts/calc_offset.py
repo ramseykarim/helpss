@@ -101,7 +101,7 @@ class GNILCModel:
         }
 
         # Basic operations with reusable results
-        # self.accumulate_planck_masks()
+        self.accumulate_planck_masks()
         self.accumulate_spire_masks(spire250_filename, spire500_filename)
         if save_beta_only:
             self.intercept_and_save_beta_and_mask()
@@ -541,8 +541,6 @@ class GNILCModel:
         Regrid the beta map to the target grid and save that and the (full) mask
         to .fits files
         """
-        print(self.beta.shape)
-        print(self.target_data.shape)
         beta_regrid = self.projector.intermediate_to_target(intermediate=self.beta[0, :, :])
         beta_hdr = self.target_wcs.to_header()
         beta_hdr['COMMENT'] = "Planck GNILC spectral index"

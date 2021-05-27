@@ -26,11 +26,11 @@ median_mask = np.nanmedian(beta[mask])
 std_mask = np.nanstd(beta[mask])
 
 with open('beta-stats.txt', 'w') as f:
-    f.write(f"MEAN (FULL): {mean_full:.2f}")
-    f.write(f"MEAN (MASK): {mean_mask:.2f}")
+    f.write(f"MEAN (FULL): {mean_full:.2f}\n")
+    f.write(f"MEAN (MASK): {mean_mask:.2f}\n\n")
 
-    f.write(f"MEDIAN (FULL): {median_full:.2f}")
-    f.write(f"MEDIAN (MASK): {median_mask:.2f}")
+    f.write(f"MEDIAN (FULL): {median_full:.2f}\n")
+    f.write(f"MEDIAN (MASK): {median_mask:.2f}\n\n")
 
-    f.write(f"STDDEV (FULL): {std_full:.2f}")
-    f.write(f"STDDEV (MASK): {std_mask:.2f}")
+    f.write(f"STDDEV (FULL): {std_full:.2f}\n")
+    f.write(f"STDDEV (MASK): {std_mask:.2f}\n")
