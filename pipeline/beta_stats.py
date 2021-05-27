@@ -15,7 +15,7 @@ import numpy as np
 from astropy.io import fits
 
 beta = fits.getdata("planck-beta.fits")
-mask = fits.getdata("calib-mask.fits")
+mask = fits.getdata("calib-mask.fits").astype(bool)
 
 mean_full = np.nanmean(beta)
 median_full = np.nanmedian(beta)
