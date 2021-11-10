@@ -3,8 +3,7 @@
 
 # append this directory to PATH so we can use calibrate.py and such
 PATH=$(pwd):$PATH
-# activate the healpy conda environment
-source activate py36
+PATH="/n/sgraraid/filaments/data/TEST4/pacs_calibrate":$PATH
 
 # useful for printing the Planck beta files from a given set of regions
 print_beta () {
