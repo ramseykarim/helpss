@@ -38,6 +38,7 @@ print_usage_exit() {
         this directory MUST be the \"observation number\" directory
         this directory MUST contain the \"level2_5\" OR \"level2\" directory
         relative or absolute path are both ok
+        will be overridden by -P or -S if those are set
         default -d <current directory> ($(pwd)/)
     -P data directory containing the archival Herschel PACS data
         overrides -d
