@@ -6,3 +6,4 @@ MantiPython/quickrun.py
 MantiPython/emcee_imgs/*
 */.idea/*
 *.fits
+.ipynb_checkpoints/*
