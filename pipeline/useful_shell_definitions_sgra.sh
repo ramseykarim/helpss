@@ -4,6 +4,8 @@
 # Created: June 29, 2020
 # Author: rkarim
 
+PATH="/sgraraid/filaments/data/TEST4/pacs_calibrate":$PATH
+
 mprep="/sgraraid/filaments/data/TEST4/pacs70_cal_test/manticore-prep/"
 ipw="/sgraraid/filaments/data/TEST4/helpss_scratch_work/pipeline/idl_preprocess_wrapper.sh"
 
